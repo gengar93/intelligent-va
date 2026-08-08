@@ -1,0 +1,6 @@
+[project]
+name = "order-support-assistant"
+version = "0.1.0"
+description = "A read-only order support assistant built incrementally."
+requires-python = ">=3.12,<3.13"
+dependencies = []
