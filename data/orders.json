@@ -1,0 +1,321 @@
+{
+  "customers": [
+    {
+      "customer_id": "CUS-001",
+      "name": "Aarav Sharma",
+      "email": "aarav.sharma@example.test"
+    },
+    {
+      "customer_id": "CUS-002",
+      "name": "Meera Iyer",
+      "email": "meera.iyer@example.test"
+    },
+    {
+      "customer_id": "CUS-003",
+      "name": "Kabir Khan",
+      "email": "kabir.khan@example.test"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ORD-1042",
+      "customer_id": "CUS-001",
+      "placed_at": "2026-08-04",
+      "status": "shipped",
+      "estimated_delivery": "2026-08-11",
+      "delivered_at": null,
+      "total": 7498,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "BlueDart",
+        "tracking_number": "BD-8829104",
+        "latest_update": "Departed the Bengaluru sorting facility on 2026-08-07 at 09:20."
+      },
+      "items": [
+        {
+          "sku": "NB-H100-BLK",
+          "product_name": "NoiseBeat H100 Headphones",
+          "category": "Audio",
+          "quantity": 1,
+          "unit_price": 7498,
+          "attributes": {
+            "color": "Black",
+            "connectivity": "Bluetooth 5.4",
+            "warranty": "1 year"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1038",
+      "customer_id": "CUS-001",
+      "placed_at": "2026-07-28",
+      "status": "delivered",
+      "estimated_delivery": "2026-08-02",
+      "delivered_at": "2026-08-01",
+      "total": 4299,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "Delhivery",
+        "tracking_number": "DL-1038821",
+        "latest_update": "Delivered to the customer on 2026-08-01 at 14:08."
+      },
+      "items": [
+        {
+          "sku": "BP-CM20-SLV",
+          "product_name": "BrewPro Coffee Maker",
+          "category": "Kitchen Appliances",
+          "quantity": 1,
+          "unit_price": 4299,
+          "attributes": {
+            "color": "Silver",
+            "capacity": "1.2 litres",
+            "warranty": "2 years"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1029",
+      "customer_id": "CUS-001",
+      "placed_at": "2026-07-17",
+      "status": "delivered",
+      "estimated_delivery": "2026-07-23",
+      "delivered_at": "2026-07-22",
+      "total": 3398,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "Ecom Express",
+        "tracking_number": "EC-2911550",
+        "latest_update": "Delivered to building reception on 2026-07-22 at 11:35."
+      },
+      "items": [
+        {
+          "sku": "UT-BP45-GRN",
+          "product_name": "UrbanTrail Backpack",
+          "category": "Bags",
+          "quantity": 1,
+          "unit_price": 2499,
+          "attributes": {
+            "color": "Forest Green",
+            "capacity": "25 litres"
+          }
+        },
+        {
+          "sku": "SS-B750-BLU",
+          "product_name": "SteelSip Bottle",
+          "category": "Drinkware",
+          "quantity": 1,
+          "unit_price": 899,
+          "attributes": {
+            "color": "Blue",
+            "capacity": "750 ml"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1107",
+      "customer_id": "CUS-002",
+      "placed_at": "2026-08-06",
+      "status": "processing",
+      "estimated_delivery": "2026-08-13",
+      "delivered_at": null,
+      "total": 6798,
+      "currency": "INR",
+      "shipment": {
+        "carrier": null,
+        "tracking_number": null,
+        "latest_update": "Items are being prepared for dispatch."
+      },
+      "items": [
+        {
+          "sku": "FL-RUN-W7",
+          "product_name": "FleetRun Running Shoes",
+          "category": "Footwear",
+          "quantity": 2,
+          "unit_price": 3399,
+          "attributes": {
+            "color": "White and Coral",
+            "size": "UK 6"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1098",
+      "customer_id": "CUS-002",
+      "placed_at": "2026-08-01",
+      "status": "delayed",
+      "estimated_delivery": "2026-08-10",
+      "delivered_at": null,
+      "total": 2847,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "DTDC",
+        "tracking_number": "DT-7714203",
+        "latest_update": "Weather disruption delayed transit; the revised estimate is 2026-08-10."
+      },
+      "items": [
+        {
+          "sku": "RL-DESK-WHT",
+          "product_name": "ReadLite Desk Lamp",
+          "category": "Home Office",
+          "quantity": 1,
+          "unit_price": 1899,
+          "attributes": {
+            "color": "White",
+            "brightness_levels": "5"
+          }
+        },
+        {
+          "sku": "PN-A5-3PK",
+          "product_name": "PaperNest A5 Notebook Set",
+          "category": "Stationery",
+          "quantity": 1,
+          "unit_price": 948,
+          "attributes": {
+            "color": "Assorted",
+            "pack_size": "3 notebooks"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1071",
+      "customer_id": "CUS-002",
+      "placed_at": "2026-07-22",
+      "status": "delivered",
+      "estimated_delivery": "2026-07-28",
+      "delivered_at": "2026-07-27",
+      "total": 5199,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "BlueDart",
+        "tracking_number": "BD-2288109",
+        "latest_update": "Delivered on 2026-07-27 at 16:42."
+      },
+      "items": [
+        {
+          "sku": "HC-PAN-5",
+          "product_name": "HomeChef Cookware Set",
+          "category": "Kitchen",
+          "quantity": 1,
+          "unit_price": 5199,
+          "attributes": {
+            "color": "Graphite",
+            "pieces": "5",
+            "induction_compatible": "Yes"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1112",
+      "customer_id": "CUS-003",
+      "placed_at": "2026-08-07",
+      "status": "out_for_delivery",
+      "estimated_delivery": "2026-08-07",
+      "delivered_at": null,
+      "total": 15498,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "BlueDart",
+        "tracking_number": "BD-9901208",
+        "latest_update": "Out for delivery in Mumbai since 2026-08-07 at 08:05."
+      },
+      "items": [
+        {
+          "sku": "EP-TAB-128",
+          "product_name": "EverydayPad Tablet",
+          "category": "Electronics",
+          "quantity": 1,
+          "unit_price": 14999,
+          "attributes": {
+            "color": "Slate",
+            "storage": "128 GB",
+            "screen": "10.4 inches"
+          }
+        },
+        {
+          "sku": "EP-CASE-SLT",
+          "product_name": "EverydayPad Folio Case",
+          "category": "Electronics Accessories",
+          "quantity": 1,
+          "unit_price": 499,
+          "attributes": {
+            "color": "Slate"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1103",
+      "customer_id": "CUS-003",
+      "placed_at": "2026-08-03",
+      "status": "partially_shipped",
+      "estimated_delivery": "2026-08-12",
+      "delivered_at": null,
+      "total": 3547,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "Multiple carriers",
+        "tracking_number": null,
+        "latest_update": "Desk lamp shipped; notebook set is still being prepared."
+      },
+      "items": [
+        {
+          "sku": "RL-DESK-BLK",
+          "product_name": "ReadLite Desk Lamp",
+          "category": "Home Office",
+          "quantity": 1,
+          "unit_price": 1899,
+          "attributes": {
+            "color": "Black",
+            "brightness_levels": "5"
+          }
+        },
+        {
+          "sku": "PN-A5-3PK",
+          "product_name": "PaperNest A5 Notebook Set",
+          "category": "Stationery",
+          "quantity": 1,
+          "unit_price": 1648,
+          "attributes": {
+            "color": "Earth tones",
+            "pack_size": "5 notebooks"
+          }
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1064",
+      "customer_id": "CUS-003",
+      "placed_at": "2026-07-26",
+      "status": "delivered",
+      "estimated_delivery": "2026-08-04",
+      "delivered_at": "2026-08-03",
+      "total": 6398,
+      "currency": "INR",
+      "shipment": {
+        "carrier": "Delhivery",
+        "tracking_number": "DL-6631098",
+        "latest_update": "Delivered on 2026-08-03 at 13:15."
+      },
+      "items": [
+        {
+          "sku": "NP-RJ-L-NVY",
+          "product_name": "NorthPeak Rain Jacket",
+          "category": "Clothing",
+          "quantity": 2,
+          "unit_price": 3199,
+          "attributes": {
+            "color": "Navy",
+            "size": "L",
+            "care": "Machine wash cold; do not tumble dry"
+          }
+        }
+      ]
+    }
+  ]
+}
