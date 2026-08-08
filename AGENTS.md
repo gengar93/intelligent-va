@@ -7,3 +7,6 @@ tradeoffs, and recommend better alternatives when appropriate.
 
 Use beginner-friendly language, work incrementally, distinguish current needs from future
 work, and summarize changes and verification afterward.
+
+Suggest a Git commit when a meaningful milestone is complete, and obtain the user's
+confirmation immediately before creating it.
