@@ -32,6 +32,10 @@ Python repository
       |
       v
 Local SQLite database
+
+Read-only chatbot tools
+      |
+      +-----> Python repository
 ```
 
 The generated SQLite database and installed dependencies are local artifacts. The schema,
@@ -111,6 +115,21 @@ API at desktop and narrow-screen sizes.
 
 Commit: `19f0c67 Add customer order dashboard`
 
+### 6. Read-only chatbot tools
+
+Added three customer-scoped tools that are testable without a model or network connection:
+
+- `list_orders`
+- `get_order_details`
+- `get_recent_product_candidates`
+
+The application binds the selected customer rather than accepting a customer ID from the
+tool caller. Product candidates come from at most the 10 newest eligible orders and are
+capped at 30 results. Python calculates the rolling cutoff for `lookback_days`; zero means
+today and `null` means no date filter. Candidate results deliberately contain only an opaque
+candidate ID, name, description, and order timestamp. Python does not perform product text
+search or ranking.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -118,10 +137,12 @@ Commit: `19f0c67 Add customer order dashboard`
 - Retrieve only the orders belonging to one customer.
 - Show order status, dates, address, payment method, items, quantities, prices, and totals.
 - Switch between customers and orders in the dashboard.
+- Execute three customer-scoped, read-only order tools without a language model.
+- Produce lean recent-product candidates using an optional rolling date window.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
-The Python database, repository, and API suite currently contains 14 passing tests. The
+The Python database, repository, API, and tool suite currently contains 24 passing tests. The
 frontend passes dependency checks, linting, and a TypeScript production build.
 
 ## Running the project
@@ -162,11 +183,10 @@ pnpm build
 
 ## Current limitations
 
-- There is no chatbot or language-model integration yet.
-- There are no model-facing tools yet.
+- The read-only tools are not connected to a chatbot or language model yet.
 - Orders have one delivery schedule; split shipments are unsupported.
-- Product lookup currently depends on normal database/API use rather than conversational
-  search.
+- Candidate selection is not implemented yet; a future chatbot model will evaluate the lean
+  candidate list while the application keeps its order mapping private.
 - There is no tracking history, payment status, invoice content, cancellation process,
   refund process, return process, or support-ticket model.
 - The dashboard and API currently run as separate development processes.
@@ -174,20 +194,12 @@ pnpm build
 
 ## Recommended next milestone
 
-Create a small, read-only tool layer for a future language model:
-
-1. `list_orders` — list the selected customer's recent orders.
-2. `get_order_details` — retrieve one order and its complete details.
-3. `find_orders_by_product` — resolve phrases such as "headphones" or "jacket" to the
-   selected customer's orders.
-
-The application—not the model—should supply the selected customer ID. The tools should
-return structured data, remain unable to modify the database, and be fully testable without
-calling a language model.
+Choose the language-model provider and design the smallest tool-calling conversation loop.
+Before implementation, decide how the application will present candidates to the model,
+accept the model's selected opaque candidate ID, privately resolve it to an order, and retain
+the active order for follow-up questions.
 
 ## Later roadmap
-
-After the read-only tools:
 
 1. Select a language-model provider and implement a tool-calling loop.
 2. Add explicit conversation state for the active customer and order.

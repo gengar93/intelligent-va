@@ -101,3 +101,50 @@ class OrderRepository:
             orders.append(order)
 
         return {"customer": dict(customer_row), "orders": orders}
+
+    def get_order_details(self, customer_id, order_id):
+        customer_orders = self.get_customer_orders(customer_id)
+        if customer_orders is None:
+            return None
+
+        return next(
+            (
+                order
+                for order in customer_orders["orders"]
+                if order["order_id"].casefold() == order_id.strip().casefold()
+            ),
+            None,
+        )
+
+    def get_recent_product_candidates(self, customer_id, cutoff_date):
+        cutoff_value = cutoff_date.isoformat() if cutoff_date is not None else None
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                WITH eligible_orders AS (
+                    SELECT order_id, placed_at
+                    FROM orders
+                    WHERE customer_id = ?
+                      AND (
+                          ? IS NULL
+                          OR substr(placed_at, 1, 10) >= ?
+                      )
+                    ORDER BY placed_at DESC
+                    LIMIT 10
+                )
+                SELECT
+                    oi.order_item_id AS candidate_id,
+                    p.name,
+                    p.description,
+                    eligible_orders.placed_at AS ordered_at
+                FROM eligible_orders
+                JOIN order_items AS oi ON oi.order_id = eligible_orders.order_id
+                JOIN products AS p ON p.product_id = oi.product_id
+                ORDER BY eligible_orders.placed_at DESC, oi.order_item_id
+                LIMIT 30
+                """,
+                (customer_id, cutoff_value, cutoff_value),
+            ).fetchall()
+
+        return [dict(row) for row in rows]

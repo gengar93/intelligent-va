@@ -1,0 +1,172 @@
+"""Customer-scoped, read-only tools for a future chatbot."""
+
+from datetime import date, timedelta
+
+from order_support.repository import OrderRepository
+
+
+TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_orders",
+            "description": "List the selected customer's orders, newest first.",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_order_details",
+            "description": "Get complete details for one of the selected customer's orders.",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "The order identifier, such as ORD-1042.",
+                    }
+                },
+                "required": ["order_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_product_candidates",
+            "description": (
+                "Return recent purchased-product candidates for the selected customer. "
+                "The caller evaluates which candidate matches the user's reference."
+            ),
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "lookback_days": {
+                        "anyOf": [
+                            {"type": "integer", "minimum": 0, "maximum": 365},
+                            {"type": "null"},
+                        ],
+                        "description": (
+                            "Rolling calendar-day window from today; null means no date filter."
+                        ),
+                    }
+                },
+                "required": ["lookback_days"],
+                "additionalProperties": False,
+            },
+        },
+    },
+]
+
+
+class OrderTools:
+    """Expose order reads while keeping the selected customer outside tool arguments."""
+
+    def __init__(
+        self,
+        repository: OrderRepository,
+        customer_id: str,
+        today_provider=date.today,
+    ):
+        self._repository = repository
+        self._customer_id = customer_id
+        self._today_provider = today_provider
+
+    def list_orders(self):
+        customer_orders = self._repository.get_customer_orders(self._customer_id)
+        if customer_orders is None:
+            return {"orders": []}
+
+        return {
+            "orders": [
+                {
+                    "order_id": order["order_id"],
+                    "status": order["status"],
+                    "placed_at": order["placed_at"],
+                    "estimated_delivery_date": order["estimated_delivery_date"],
+                    "delivered_at": order["delivered_at"],
+                    "currency": order["currency"],
+                    "total_minor": order["total_minor"],
+                    "items": [
+                        {
+                            "name": item["product_name"],
+                            "quantity": item["quantity"],
+                        }
+                        for item in order["items"]
+                    ],
+                }
+                for order in customer_orders["orders"]
+            ]
+        }
+
+    def get_order_details(self, order_id):
+        order = self._repository.get_order_details(self._customer_id, order_id)
+        if order is None:
+            return {"found": False, "order": None}
+
+        public_order = {
+            key: value
+            for key, value in order.items()
+            if key not in {"items"}
+        }
+        public_order["items"] = [
+            {
+                "sku": item["sku"],
+                "name": item["product_name"],
+                "description": item["description"],
+                "quantity": item["quantity"],
+                "unit_price_minor": item["unit_price_minor"],
+                "line_total_minor": item["line_total_minor"],
+            }
+            for item in order["items"]
+        ]
+        return {"found": True, "order": public_order}
+
+    def get_recent_product_candidates(self, lookback_days):
+        self._validate_lookback_days(lookback_days)
+        cutoff_date = (
+            None
+            if lookback_days is None
+            else self._today_provider() - timedelta(days=lookback_days)
+        )
+        candidates = self._repository.get_recent_product_candidates(
+            self._customer_id,
+            cutoff_date,
+        )
+        return {"candidates": candidates}
+
+    def execute(self, tool_name, arguments):
+        if tool_name == "list_orders":
+            if arguments:
+                raise ValueError("list_orders does not accept arguments")
+            return self.list_orders()
+        if tool_name == "get_order_details":
+            if set(arguments) != {"order_id"}:
+                raise ValueError("get_order_details requires only order_id")
+            return self.get_order_details(arguments["order_id"])
+        if tool_name == "get_recent_product_candidates":
+            if set(arguments) != {"lookback_days"}:
+                raise ValueError(
+                    "get_recent_product_candidates requires only lookback_days"
+                )
+            return self.get_recent_product_candidates(arguments["lookback_days"])
+        raise ValueError(f"Unknown tool: {tool_name}")
+
+    @staticmethod
+    def _validate_lookback_days(lookback_days):
+        if lookback_days is None:
+            return
+        if isinstance(lookback_days, bool) or not isinstance(lookback_days, int):
+            raise ValueError("lookback_days must be an integer from 0 to 365, or null")
+        if not 0 <= lookback_days <= 365:
+            raise ValueError("lookback_days must be an integer from 0 to 365, or null")
