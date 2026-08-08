@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
+from pydantic import Field
 
 
 class CustomerRead(BaseModel):
@@ -39,3 +40,14 @@ class OrderRead(BaseModel):
 class CustomerOrdersRead(BaseModel):
     customer: CustomerRead
     orders: list[OrderRead]
+
+
+class ChatRequest(BaseModel):
+    customer_id: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    conversation_id: str | None = None
+
+
+class ChatResponse(BaseModel):
+    conversation_id: str
+    answer: str

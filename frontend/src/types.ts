@@ -34,3 +34,14 @@ export interface CustomerOrders {
   customer: Customer;
   orders: Order[];
 }
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResponse {
+  conversation_id: string;
+  answer: string;
+}

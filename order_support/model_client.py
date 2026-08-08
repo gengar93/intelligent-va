@@ -21,13 +21,16 @@ class OpenRouterChatClient:
         )
 
     def complete(self, messages, tools):
-        completion = self._client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            parallel_tool_calls=False,
-        )
+        try:
+            completion = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+                parallel_tool_calls=False,
+            )
+        except Exception as error:
+            raise RuntimeError("The model request failed") from error
         if not completion.choices:
             raise RuntimeError("The model returned no completion choices")
 

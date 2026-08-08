@@ -1,6 +1,6 @@
 # Project Journal
 
-Last updated: 8 August 2026
+Last updated: 9 August 2026
 
 ## Goal
 
@@ -146,12 +146,25 @@ questions without separate active-order state.
 
 The selected customer is supplied by the application whenever it executes tools and is not
 part of the model-visible tool arguments. Product candidates return `order_id` directly, so
-the model can call `get_order_details` without a separate candidate-resolution tool. The
-loop currently has no API endpoint or UI integration.
+the model can call `get_order_details` without a separate candidate-resolution tool.
 
 A controlled live OpenRouter smoke test used the fictional `CUS-001` data. The model found
 the recently purchased headphones, fetched their order details, answered the price, and then
 answered a delivery-status follow-up from the preserved message history.
+
+### 8. Dashboard chatbot integration
+
+Added `POST /api/chat` as the boundary between the dashboard and conversation loop. The
+browser sends the selected customer, message, and an optional opaque conversation ID. The
+backend owns the complete canonical history, binds every conversation to one customer, and
+returns only the conversation ID and customer-facing answer. Unknown conversations and
+attempts to reuse a conversation for another customer are rejected before calling the model.
+
+Added a chat panel to the customer dashboard with sending, error, empty, and reset states.
+Changing customers starts a fresh conversation, and internal tool messages and order IDs are
+not sent to the browser. A live browser test verified a product-price question, a delivery
+follow-up using preserved history, and conversation reset on customer change. The layout was
+also verified at desktop and mobile widths.
 
 ## Current functionality
 
@@ -164,11 +177,13 @@ answered a delivery-status follow-up from the preserved message history.
 - Produce lean recent-product candidates using an optional rolling date window.
 - Run a bounded model/tool loop while preserving the complete internal message history.
 - Continue follow-up conversations using earlier hidden tool results.
+- Chat with the assistant from the selected customer's dashboard.
+- Start a fresh conversation explicitly or by changing customers.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 33 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 41 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -209,9 +224,10 @@ pnpm build
 
 ## Current limitations
 
-- The conversation loop is not connected to the dashboard or an HTTP chat endpoint yet.
 - Complete history is intentionally unbounded for the first version; long conversations will
   eventually require summarization or compaction.
+- Conversation sessions are held only in backend memory and are lost when the API restarts.
+- In-memory conversation sessions do not yet expire automatically.
 - Orders have one delivery schedule; split shipments are unsupported.
 - A customer change must begin a fresh internal history so previous customer tool results do
   not remain in model context.
@@ -222,15 +238,13 @@ pnpm build
 
 ## Recommended next milestone
 
-Design the backend integration boundary through which the dashboard will call the conversation
-loop while keeping internal tool messages hidden from the interface. Discuss the request,
-response, and conversation-state contract before implementing it.
+Exercise the read-only portions of the target sample conversations and additional natural-
+language variations. Use the results to identify tool or prompt gaps, then agree on explicit
+completion criteria for the first read-only version.
 
 ## Later roadmap
 
-1. Add a backend integration boundary for the dashboard.
-2. Add a chat panel to the existing dashboard while keeping internal history hidden.
-3. Test natural-language variations and read-only portions of the sample conversations.
-4. Define completion criteria for the first read-only version.
-5. Only then expand the data model and tools for split shipments, cancellations, refunds,
+1. Test natural-language variations and read-only portions of the sample conversations.
+2. Define completion criteria for the first read-only version.
+3. Only then expand the data model and tools for split shipments, cancellations, refunds,
    returns, address changes, invoices, and support tickets.

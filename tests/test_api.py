@@ -1,6 +1,9 @@
+from copy import deepcopy
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -8,12 +11,25 @@ from order_support.api import create_app
 from scripts.reset_database import build_database
 
 
+class FakeModelClient:
+    def __init__(self):
+        self.responses = []
+        self.requests = []
+
+    def complete(self, messages, tools):
+        self.requests.append({"messages": deepcopy(messages), "tools": deepcopy(tools)})
+        if not self.responses:
+            raise RuntimeError("No fake response configured")
+        return deepcopy(self.responses.pop(0))
+
+
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.database_path = Path(self.temporary_directory.name) / "orders.db"
         build_database(self.database_path)
-        self.client = TestClient(create_app(self.database_path))
+        self.model_client = FakeModelClient()
+        self.client = TestClient(create_app(self.database_path, self.model_client))
 
     def tearDown(self):
         self.temporary_directory.cleanup()
@@ -52,6 +68,143 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json(), {"detail": "Customer not found"})
+
+    def test_starts_and_continues_a_customer_conversation(self):
+        self.model_client.responses = [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call-orders",
+                        "type": "function",
+                        "function": {
+                            "name": "list_orders",
+                            "arguments": json.dumps({}),
+                        },
+                    }
+                ],
+            },
+            {"role": "assistant", "content": "Your order is shipped."},
+            {"role": "assistant", "content": "It should arrive on 11 August."},
+        ]
+
+        first_response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "Where is my order?"},
+        )
+        conversation_id = first_response.json()["conversation_id"]
+        second_response = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "When will it arrive?",
+                "conversation_id": conversation_id,
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(
+            first_response.json(),
+            {
+                "conversation_id": conversation_id,
+                "answer": "Your order is shipped.",
+            },
+        )
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.json()["conversation_id"], conversation_id)
+        second_request_messages = self.model_client.requests[2]["messages"]
+        self.assertEqual(
+            [message["role"] for message in second_request_messages],
+            ["system", "user", "assistant", "tool", "assistant", "user"],
+        )
+        self.assertEqual(second_request_messages[3]["tool_call_id"], "call-orders")
+
+    def test_does_not_return_internal_history_to_the_browser(self):
+        self.model_client.responses = [
+            {"role": "assistant", "content": "You have two orders."}
+        ]
+
+        response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "List my orders"},
+        )
+
+        self.assertEqual(set(response.json()), {"conversation_id", "answer"})
+
+    def test_rejects_using_a_conversation_for_another_customer(self):
+        self.model_client.responses = [
+            {"role": "assistant", "content": "First response"}
+        ]
+        first_response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "Hello"},
+        )
+
+        response = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-002",
+                "message": "Continue",
+                "conversation_id": first_response.json()["conversation_id"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json(),
+            {"detail": "Conversation belongs to a different customer"},
+        )
+        self.assertEqual(len(self.model_client.requests), 1)
+
+    def test_returns_not_found_for_unknown_conversation(self):
+        response = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Continue",
+                "conversation_id": "missing",
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {"detail": "Conversation not found"})
+
+    def test_rejects_blank_chat_input_before_calling_model(self):
+        response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "   "},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.model_client.requests, [])
+
+    def test_returns_generic_error_when_assistant_fails(self):
+        response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "Where is my order?"},
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.json(),
+            {"detail": "The assistant could not complete the request"},
+        )
+
+    def test_returns_generic_error_when_assistant_is_not_configured(self):
+        unconfigured_client = TestClient(create_app(self.database_path))
+
+        with patch(
+            "order_support.api.OpenRouterSettings.from_env",
+            side_effect=ValueError("sensitive configuration detail"),
+        ):
+            response = unconfigured_client.post(
+                "/api/chat",
+                json={"customer_id": "CUS-001", "message": "Where is my order?"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"detail": "The assistant is not configured"})
 
 
 if __name__ == "__main__":

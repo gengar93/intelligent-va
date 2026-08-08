@@ -39,6 +39,21 @@ class ModelClientTests(unittest.TestCase):
             parallel_tool_calls=False,
         )
 
+    def test_translates_sdk_errors_to_runtime_errors(self):
+        sdk_client = Mock()
+        sdk_client.chat.completions.create.side_effect = Exception("provider details")
+        client = OpenRouterChatClient(
+            OpenRouterSettings(
+                api_key="test-key",
+                model="test/model",
+                base_url="https://example.test/v1",
+            ),
+            sdk_client=sdk_client,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "model request failed"):
+            client.complete([], [])
+
 
 if __name__ == "__main__":
     unittest.main()

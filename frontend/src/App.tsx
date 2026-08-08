@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 
-import { fetchCustomerOrders, fetchCustomers } from "./api";
-import type { Customer, CustomerOrders, Order, OrderStatus } from "./types";
+import { fetchCustomerOrders, fetchCustomers, sendChatMessage } from "./api";
+import type { ChatMessage, Customer, CustomerOrders, Order, OrderStatus } from "./types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   processing: "Processing",
@@ -175,6 +176,103 @@ function OrderDetails({ order }: { order: Order }) {
   );
 }
 
+function ChatPanel({
+  customerName,
+  messages,
+  draft,
+  isSending,
+  error,
+  onDraftChange,
+  onSubmit,
+  onNewConversation,
+}: {
+  customerName: string;
+  messages: ChatMessage[];
+  draft: string;
+  isSending: boolean;
+  error: string | null;
+  onDraftChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onNewConversation: () => void;
+}) {
+  const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, isSending]);
+
+  return (
+    <section className="chat-panel" aria-labelledby="chat-heading">
+      <div className="chat-panel__header">
+        <div>
+          <p className="eyebrow">Read-only assistant</p>
+          <h2 id="chat-heading">Ask about orders</h2>
+        </div>
+        <button
+          className="chat-panel__reset"
+          type="button"
+          onClick={onNewConversation}
+          disabled={messages.length === 0 || isSending}
+        >
+          New conversation
+        </button>
+      </div>
+
+      <div className="chat-messages" aria-live="polite">
+        {messages.length === 0 ? (
+          <div className="chat-welcome">
+            <span aria-hidden="true">✦</span>
+            <div>
+              <strong>How can I help with {customerName}’s orders?</strong>
+              <p>Try “Where is my latest order?” or “What did my last order cost?”</p>
+            </div>
+          </div>
+        ) : null}
+
+        {messages.map((message) => (
+          <div className={`chat-message chat-message--${message.role}`} key={message.id}>
+            <span>{message.role === "assistant" ? "Assistant" : "You"}</span>
+            <p>{message.content}</p>
+          </div>
+        ))}
+
+        {isSending ? (
+          <div className="chat-message chat-message--assistant chat-message--thinking" role="status">
+            <span>Assistant</span>
+            <p>
+              <i />
+              <i />
+              <i />
+              <span className="sr-only">Thinking…</span>
+            </p>
+          </div>
+        ) : null}
+        <div ref={endOfMessagesRef} />
+      </div>
+
+      {error ? <p className="chat-error" role="alert">{error}</p> : null}
+
+      <form className="chat-composer" onSubmit={onSubmit}>
+        <label htmlFor="chat-message">Message</label>
+        <div>
+          <input
+            id="chat-message"
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder="Ask about an order, item, price, or delivery…"
+            autoComplete="off"
+            disabled={isSending}
+          />
+          <button type="submit" disabled={isSending || !draft.trim()}>
+            {isSending ? "Sending" : "Send"}
+          </button>
+        </div>
+        <p>The assistant can look up information but cannot change orders.</p>
+      </form>
+    </section>
+  );
+}
+
 export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -183,6 +281,12 @@ export default function App() {
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatDraft, setChatDraft] = useState("");
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -242,11 +346,68 @@ export default function App() {
     ).length ?? 0;
 
   function handleCustomerChange(customerId: string) {
+    chatRequestRef.current?.abort();
     setSelectedCustomerId(customerId);
     setIsLoadingOrders(true);
     setError(null);
     setCustomerOrders(null);
     setSelectedOrderId(null);
+    resetConversation();
+  }
+
+  function resetConversation() {
+    setChatMessages([]);
+    setConversationId(null);
+    setChatDraft("");
+    setChatError(null);
+    setIsSendingChat(false);
+  }
+
+  async function handleChatSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const message = chatDraft.trim();
+    if (!message || !selectedCustomerId || isSendingChat) return;
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: message,
+    };
+    const controller = new AbortController();
+    chatRequestRef.current = controller;
+    setChatMessages((current) => [...current, userMessage]);
+    setChatDraft("");
+    setChatError(null);
+    setIsSendingChat(true);
+
+    try {
+      const response = await sendChatMessage(
+        selectedCustomerId,
+        message,
+        conversationId,
+        controller.signal,
+      );
+      setConversationId(response.conversation_id);
+      setChatMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.answer,
+        },
+      ]);
+    } catch (requestError) {
+      if (requestError instanceof Error && requestError.name !== "AbortError") {
+        setChatMessages((current) => current.filter((item) => item.id !== userMessage.id));
+        setChatError("The assistant couldn’t respond. Please try sending your message again.");
+        setChatDraft(message);
+      }
+    } finally {
+      if (chatRequestRef.current === controller) {
+        chatRequestRef.current = null;
+        setIsSendingChat(false);
+      }
+    }
   }
 
   return (
@@ -343,6 +504,17 @@ export default function App() {
                 <span>This customer does not have any orders to display.</span>
               </div>
             )}
+
+            <ChatPanel
+              customerName={customerOrders.customer.name}
+              messages={chatMessages}
+              draft={chatDraft}
+              isSending={isSendingChat}
+              error={chatError}
+              onDraftChange={setChatDraft}
+              onSubmit={handleChatSubmit}
+              onNewConversation={resetConversation}
+            />
           </>
         ) : null}
       </main>
