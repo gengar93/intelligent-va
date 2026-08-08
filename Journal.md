@@ -36,6 +36,11 @@ Local SQLite database
 Read-only chatbot tools
       |
       +-----> Python repository
+
+Conversation loop
+      |-----> OpenRouter model
+      |
+      +-----> Read-only chatbot tools
 ```
 
 The generated SQLite database and installed dependencies are local artifacts. The schema,
@@ -66,6 +71,7 @@ floating-point errors.
 - SQLite for the local database because it requires no database server.
 - Python 3.12 managed with `uv`.
 - FastAPI for the read-only HTTP API.
+- OpenRouter through the OpenAI-compatible Python SDK for model requests.
 - React, TypeScript, and Vite for the dashboard.
 - `pnpm` for frontend dependencies.
 
@@ -127,8 +133,25 @@ The application binds the selected customer rather than accepting a customer ID 
 tool caller. Product candidates come from at most the 10 newest eligible orders and are
 capped at 30 results. Python calculates the rolling cutoff for `lookback_days`; zero means
 today and `null` means no date filter. Candidate results deliberately contain only an opaque
-candidate ID, name, description, and order timestamp. Python does not perform product text
-search or ranking.
+order ID, name, description, and order timestamp. Python does not perform product text search
+or ranking; the model compares the user's wording with these candidates.
+
+### 7. History-preserving conversation loop
+
+Added an OpenRouter-compatible model adapter and a Python conversation loop. The loop keeps
+the complete canonical history—including system, user, assistant tool-call, tool-result, and
+assistant response messages—and resends it on each model request. Hidden tool results retain
+order IDs even when the customer-facing answer does not mention them, allowing follow-up
+questions without separate active-order state.
+
+The selected customer is supplied by the application whenever it executes tools and is not
+part of the model-visible tool arguments. Product candidates return `order_id` directly, so
+the model can call `get_order_details` without a separate candidate-resolution tool. The
+loop currently has no API endpoint or UI integration.
+
+A controlled live OpenRouter smoke test used the fictional `CUS-001` data. The model found
+the recently purchased headphones, fetched their order details, answered the price, and then
+answered a delivery-status follow-up from the preserved message history.
 
 ## Current functionality
 
@@ -139,11 +162,14 @@ search or ranking.
 - Switch between customers and orders in the dashboard.
 - Execute three customer-scoped, read-only order tools without a language model.
 - Produce lean recent-product candidates using an optional rolling date window.
+- Run a bounded model/tool loop while preserving the complete internal message history.
+- Continue follow-up conversations using earlier hidden tool results.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
-The Python database, repository, API, and tool suite currently contains 24 passing tests. The
-frontend passes dependency checks, linting, and a TypeScript production build.
+The Python database, repository, API, tool, configuration, model-adapter, and conversation
+suite currently contains 33 passing tests. The frontend passes dependency checks, linting,
+and a TypeScript production build.
 
 ## Running the project
 
@@ -183,10 +209,12 @@ pnpm build
 
 ## Current limitations
 
-- The read-only tools are not connected to a chatbot or language model yet.
+- The conversation loop is not connected to the dashboard or an HTTP chat endpoint yet.
+- Complete history is intentionally unbounded for the first version; long conversations will
+  eventually require summarization or compaction.
 - Orders have one delivery schedule; split shipments are unsupported.
-- Candidate selection is not implemented yet; a future chatbot model will evaluate the lean
-  candidate list while the application keeps its order mapping private.
+- A customer change must begin a fresh internal history so previous customer tool results do
+  not remain in model context.
 - There is no tracking history, payment status, invoice content, cancellation process,
   refund process, return process, or support-ticket model.
 - The dashboard and API currently run as separate development processes.
@@ -194,17 +222,15 @@ pnpm build
 
 ## Recommended next milestone
 
-Choose the language-model provider and design the smallest tool-calling conversation loop.
-Before implementation, decide how the application will present candidates to the model,
-accept the model's selected opaque candidate ID, privately resolve it to an order, and retain
-the active order for follow-up questions.
+Design the backend integration boundary through which the dashboard will call the conversation
+loop while keeping internal tool messages hidden from the interface. Discuss the request,
+response, and conversation-state contract before implementing it.
 
 ## Later roadmap
 
-1. Select a language-model provider and implement a tool-calling loop.
-2. Add explicit conversation state for the active customer and order.
-3. Add a chat panel to the existing dashboard.
-4. Test natural-language variations and read-only portions of the sample conversations.
-5. Define completion criteria for the first read-only version.
-6. Only then expand the data model and tools for split shipments, cancellations, refunds,
+1. Add a backend integration boundary for the dashboard.
+2. Add a chat panel to the existing dashboard while keeping internal history hidden.
+3. Test natural-language variations and read-only portions of the sample conversations.
+4. Define completion criteria for the first read-only version.
+5. Only then expand the data model and tools for split shipments, cancellations, refunds,
    returns, address changes, invoices, and support tickets.

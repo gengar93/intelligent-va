@@ -59,12 +59,12 @@ class OrderToolsTests(unittest.TestCase):
         unlimited = self.tools.get_recent_product_candidates(None)
 
         self.assertEqual(
-            [candidate["candidate_id"] for candidate in four_days["candidates"]],
-            ["ITEM-1042-1"],
+            [candidate["order_id"] for candidate in four_days["candidates"]],
+            ["ORD-1042"],
         )
         self.assertEqual(
-            [candidate["candidate_id"] for candidate in unlimited["candidates"]],
-            ["ITEM-1042-1", "ITEM-1038-1"],
+            [candidate["order_id"] for candidate in unlimited["candidates"]],
+            ["ORD-1042", "ORD-1038"],
         )
 
     def test_returns_zero_candidates_when_window_has_no_orders(self):
@@ -87,7 +87,7 @@ class OrderToolsTests(unittest.TestCase):
         )
         self.assertEqual(
             set(result["candidates"][0]),
-            {"candidate_id", "name", "description", "ordered_at"},
+            {"order_id", "name", "description", "ordered_at"},
         )
 
     def test_preserves_duplicate_products_across_orders(self):
@@ -137,8 +137,8 @@ class OrderToolsTests(unittest.TestCase):
 
         self.assertEqual(len(headphone_candidates), 2)
         self.assertEqual(
-            {candidate["candidate_id"] for candidate in headphone_candidates},
-            {"ITEM-1042-1", "ITEM-DUPLICATE"},
+            {candidate["order_id"] for candidate in headphone_candidates},
+            {"ORD-1042", "ORD-DUPLICATE"},
         )
 
     def test_candidates_use_ten_orders_and_thirty_candidate_limits(self):
@@ -187,15 +187,15 @@ class OrderToolsTests(unittest.TestCase):
                     )
 
         result = self.tools.get_recent_product_candidates(0)
-        candidate_ids = {
-            candidate["candidate_id"] for candidate in result["candidates"]
+        candidate_order_ids = {
+            candidate["order_id"] for candidate in result["candidates"]
         }
 
         self.assertEqual(len(result["candidates"]), 30)
         self.assertFalse(
             any(
-                candidate_id.startswith("ITEM-LIMIT-00")
-                for candidate_id in candidate_ids
+                order_id == "ORD-LIMIT-00"
+                for order_id in candidate_order_ids
             )
         )
 
@@ -205,7 +205,7 @@ class OrderToolsTests(unittest.TestCase):
             {"lookback_days": 4},
         )
 
-        self.assertEqual(result["candidates"][0]["candidate_id"], "ITEM-1042-1")
+        self.assertEqual(result["candidates"][0]["order_id"], "ORD-1042")
         with self.assertRaises(ValueError):
             self.tools.execute("list_orders", {"customer_id": "CUS-002"})
         with self.assertRaises(ValueError):

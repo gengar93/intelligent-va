@@ -134,7 +134,7 @@ class OrderRepository:
                     LIMIT 10
                 )
                 SELECT
-                    oi.order_item_id AS candidate_id,
+                    eligible_orders.order_id,
                     p.name,
                     p.description,
                     eligible_orders.placed_at AS ordered_at

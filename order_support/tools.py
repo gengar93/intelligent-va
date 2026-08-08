@@ -45,7 +45,8 @@ TOOL_DEFINITIONS = [
             "name": "get_recent_product_candidates",
             "description": (
                 "Return recent purchased-product candidates for the selected customer. "
-                "The caller evaluates which candidate matches the user's reference."
+                "The caller compares names and descriptions with the user's reference, "
+                "then uses the matching order_id with get_order_details."
             ),
             "strict": True,
             "parameters": {
