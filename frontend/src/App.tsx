@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
+import ReactMarkdown from "react-markdown";
 
 import { fetchCustomerOrders, fetchCustomers, streamChatMessage } from "./api";
 import type { ChatMessage, Customer, CustomerOrders, Order, OrderStatus } from "./types";
@@ -11,6 +12,8 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
+const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br"];
+
 function formatMoney(amountMinor: number, currency: string): string {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -21,7 +24,6 @@ function formatMoney(amountMinor: number, currency: string): string {
 
 function formatDate(value: string | null, includeTime = false): string {
   if (!value) return "Not available";
-
   const parsedValue = value.includes("T") ? value : `${value}T00:00:00`;
   return new Intl.DateTimeFormat("en-IN", {
     day: "numeric",
@@ -42,8 +44,8 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 function LoadingState() {
   return (
     <div className="loading-state" role="status" aria-live="polite">
-      <span className="loading-state__mark" aria-hidden="true" />
-      <span>Loading order data…</span>
+      <span className="spinner" aria-hidden="true" />
+      <span>Loading customer records…</span>
     </div>
   );
 }
@@ -58,40 +60,32 @@ function OrderList({
   onSelect: (orderId: string) => void;
 }) {
   return (
-    <section className="order-list-panel" aria-labelledby="orders-heading">
-      <div className="section-heading">
+    <section className="panel orders-panel" aria-labelledby="orders-heading">
+      <div className="panel-header">
         <div>
-          <p className="eyebrow">Order history</p>
-          <h2 id="orders-heading">Orders</h2>
+          <span className="label">ORDER HISTORY</span>
+          <h2 id="orders-heading">Recent orders</h2>
         </div>
         <span className="count-label">{orders.length}</span>
       </div>
-
       <div className="order-list">
         {orders.map((order) => (
           <button
-            className={`order-row ${selectedOrderId === order.order_id ? "order-row--selected" : ""}`}
+            className={`order-row ${selectedOrderId === order.order_id ? "is-active" : ""}`}
             key={order.order_id}
             type="button"
             onClick={() => onSelect(order.order_id)}
             aria-pressed={selectedOrderId === order.order_id}
           >
-            <span className="order-row__topline">
-              <strong>{order.order_id}</strong>
-              <StatusBadge status={order.status} />
+            <strong>{order.order_id}</strong>
+            <StatusBadge status={order.status} />
+            <span className="order-row__date">{formatDate(order.placed_at)}</span>
+            <span className="order-row__items">
+              {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
             </span>
-            <span className="order-row__meta">
-              <span>{formatDate(order.placed_at)}</span>
-              <span aria-hidden="true">·</span>
-              <span>
-                {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
-              </span>
-            </span>
-            <span className="order-row__bottomline">
-              <span>{formatMoney(order.total_minor, order.currency)}</span>
-              <span className="order-row__arrow" aria-hidden="true">
-                →
-              </span>
+            <span />
+            <span className="order-row__total">
+              {formatMoney(order.total_minor, order.currency)}
             </span>
           </button>
         ))}
@@ -108,44 +102,44 @@ function OrderDetails({ order }: { order: Order }) {
       : formatDate(order.estimated_delivery_date);
 
   return (
-    <section className="order-detail-panel" aria-labelledby="order-detail-heading">
-      <div className="detail-header">
+    <section className="panel order-details" aria-labelledby="order-detail-heading">
+      <div className="record-header">
         <div>
-          <p className="eyebrow">Selected order</p>
+          <span className="label">SELECTED ORDER</span>
           <h2 id="order-detail-heading">{order.order_id}</h2>
-          <p className="detail-header__date">Placed {formatDate(order.placed_at)}</p>
+          <span className="muted">Placed {formatDate(order.placed_at, true)}</span>
         </div>
         <StatusBadge status={order.status} />
       </div>
 
-      <div className="detail-facts">
-        <div className="detail-fact">
-          <span>{deliveryLabel}</span>
-          <strong>{deliveryValue}</strong>
+      <dl className="fact-grid">
+        <div>
+          <dt>{deliveryLabel}</dt>
+          <dd>{deliveryValue}</dd>
         </div>
-        <div className="detail-fact">
-          <span>Payment</span>
-          <strong>{order.payment_method_display}</strong>
+        <div>
+          <dt>Payment</dt>
+          <dd>{order.payment_method_display}</dd>
         </div>
-        <div className="detail-fact detail-fact--address">
-          <span>Delivery address</span>
-          <strong>{order.delivery_address}</strong>
+        <div className="fact-grid__wide">
+          <dt>Delivery address</dt>
+          <dd>{order.delivery_address}</dd>
         </div>
-      </div>
+      </dl>
 
-      <div className="items-section">
-        <div className="items-section__heading">
-          <h3>Items</h3>
+      <div className="line-items">
+        <div className="line-items__head">
+          <strong>Line items</strong>
           <span>
             {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
           </span>
         </div>
-
-        <div className="items-table-wrap">
-          <table className="items-table">
+        <div className="table-scroll">
+          <table>
             <thead>
               <tr>
                 <th scope="col">Product</th>
+                <th scope="col">SKU</th>
                 <th scope="col">Qty</th>
                 <th scope="col">Unit price</th>
                 <th scope="col">Total</th>
@@ -154,34 +148,46 @@ function OrderDetails({ order }: { order: Order }) {
             <tbody>
               {order.items.map((item) => (
                 <tr key={item.order_item_id}>
-                  <td>
-                    <strong>{item.product_name}</strong>
-                    <span>{item.sku}</span>
-                  </td>
+                  <td><strong>{item.product_name}</strong></td>
+                  <td>{item.sku}</td>
                   <td>{item.quantity}</td>
                   <td>{formatMoney(item.unit_price_minor, order.currency)}</td>
                   <td>{formatMoney(item.line_total_minor, order.currency)}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4}>Order total</td>
+                <td>{formatMoney(order.total_minor, order.currency)}</td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-
-        <div className="order-total">
-          <span>Order total</span>
-          <strong>{formatMoney(order.total_minor, order.currency)}</strong>
         </div>
       </div>
     </section>
   );
 }
 
+function AssistantMarkdown({ children }: { children: string }) {
+  return (
+    <ReactMarkdown
+      allowedElements={MARKDOWN_ELEMENTS}
+      skipHtml
+      unwrapDisallowed
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}
+
 function ChatPanel({
   customerName,
   messages,
+  activities,
   draft,
   isSending,
-  status,
+  currentStatus,
   error,
   onDraftChange,
   onSubmit,
@@ -189,9 +195,10 @@ function ChatPanel({
 }: {
   customerName: string;
   messages: ChatMessage[];
+  activities: string[];
   draft: string;
   isSending: boolean;
-  status: string | null;
+  currentStatus: string | null;
   error: string | null;
   onDraftChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -204,14 +211,14 @@ function ChatPanel({
   }, [messages, isSending]);
 
   return (
-    <section className="chat-panel" aria-labelledby="chat-heading">
-      <div className="chat-panel__header">
+    <div className="chat-view">
+      <div className="chat-toolbar">
         <div>
-          <p className="eyebrow">Read-only assistant</p>
-          <h2 id="chat-heading">Ask about orders</h2>
+          <span className="label">READ-ONLY ASSISTANT</span>
+          <h1>Order inquiry</h1>
         </div>
         <button
-          className="chat-panel__reset"
+          className="secondary-button"
           type="button"
           onClick={onNewConversation}
           disabled={messages.length === 0 || isSending}
@@ -220,56 +227,99 @@ function ChatPanel({
         </button>
       </div>
 
-      <div className="chat-messages" aria-live="polite">
-        {messages.length === 0 ? (
-          <div className="chat-welcome">
-            <span aria-hidden="true">✦</span>
-            <div>
-              <strong>How can I help with {customerName}’s orders?</strong>
-              <p>Try “Where is my latest order?” or “What did my last order cost?”</p>
+      <div className="assistant-layout">
+        <section className="conversation" aria-label="Conversation">
+          <div className="messages" aria-live="polite">
+            {messages.length === 0 ? (
+              <div className="conversation-empty">
+                <span aria-hidden="true">OD</span>
+                <strong>Hello, {customerName}</strong>
+                <p>Type your order question below to get started.</p>
+              </div>
+            ) : null}
+
+            {messages.map((message) => (
+              <article className={`message message--${message.role}`} key={message.id}>
+                <div className="message__meta">
+                  {message.role === "user" ? "You" : "Order assistant"}
+                </div>
+                <div className="message__body">
+                  {message.role === "assistant" ? (
+                    <AssistantMarkdown>{message.content}</AssistantMarkdown>
+                  ) : (
+                    <p>{message.content}</p>
+                  )}
+                </div>
+              </article>
+            ))}
+
+            <div ref={endOfMessagesRef} />
+          </div>
+
+          {isSending ? (
+            <div className="activity-inline" role="status">
+              <span className="spinner" aria-hidden="true" />
+              <span>{currentStatus ?? "Understanding your question…"}</span>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {messages.map((message) => (
-          <div className={`chat-message chat-message--${message.role}`} key={message.id}>
-            <span>{message.role === "assistant" ? "Assistant" : "You"}</span>
-            <p>{message.content}</p>
-          </div>
-        ))}
+          {error ? <p className="chat-error" role="alert">{error}</p> : null}
 
-        {isSending ? (
-          <div className="chat-message chat-message--assistant chat-message--thinking" role="status">
-            <span>Assistant</span>
-            <p>
-              <i aria-hidden="true" />
-              {status ?? "Understanding your question…"}
-            </p>
-          </div>
-        ) : null}
-        <div ref={endOfMessagesRef} />
+          <form className="composer" onSubmit={onSubmit}>
+            <label className="sr-only" htmlFor="chat-message">Ask about an order</label>
+            <textarea
+              id="chat-message"
+              rows={2}
+              value={draft}
+              onChange={(event) => onDraftChange(event.target.value)}
+              placeholder="Ask about order status, items, delivery, or payment…"
+              disabled={isSending}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+            />
+            <div className="composer__footer">
+              <span>Read-only · Order data only</span>
+              <button type="submit" disabled={isSending || !draft.trim()}>
+                {isSending ? "Working" : "Send"} <kbd>↵</kbd>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside className="activity-panel" aria-labelledby="activity-title">
+          <header>
+            <span className="label">CURRENT REQUEST</span>
+            <h2 id="activity-title">Activity</h2>
+          </header>
+          <ol className="activity-log">
+            {activities.length === 0 ? (
+              <li>
+                <span>·</span>
+                <div><strong>No active request</strong><small>Submit a question to begin</small></div>
+              </li>
+            ) : activities.map((activity, index) => {
+              const active = isSending && index === activities.length - 1;
+              return (
+                <li className={active ? "is-active" : "is-complete"} key={`${activity}-${index}`}>
+                  <span>{active ? "•" : "✓"}</span>
+                  <div>
+                    <strong>{activity.replace(/…$/, "")}</strong>
+                    <small>{active ? "In progress" : "Completed"}</small>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="activity-note">
+            Only customer-scoped, read-only tools can be used in this workspace.
+          </p>
+        </aside>
       </div>
-
-      {error ? <p className="chat-error" role="alert">{error}</p> : null}
-
-      <form className="chat-composer" onSubmit={onSubmit}>
-        <label htmlFor="chat-message">Message</label>
-        <div>
-          <input
-            id="chat-message"
-            value={draft}
-            onChange={(event) => onDraftChange(event.target.value)}
-            placeholder="Ask about an order, item, price, or delivery…"
-            autoComplete="off"
-            disabled={isSending}
-          />
-          <button type="submit" disabled={isSending || !draft.trim()}>
-            {isSending ? "Sending" : "Send"}
-          </button>
-        </div>
-        <p>The assistant can look up information but cannot change orders.</p>
-      </form>
-    </section>
+    </div>
   );
 }
 
@@ -287,12 +337,12 @@ export default function App() {
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatStatus, setChatStatus] = useState<string | null>(null);
+  const [chatActivities, setChatActivities] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "assistant">("overview");
   const chatRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-
     fetchCustomers(controller.signal)
       .then((result) => {
         setCustomers(result);
@@ -309,15 +359,12 @@ export default function App() {
       .finally(() => {
         if (!controller.signal.aborted) setIsLoadingCustomers(false);
       });
-
     return () => controller.abort();
   }, []);
 
   useEffect(() => {
     if (!selectedCustomerId) return;
-
     const controller = new AbortController();
-
     fetchCustomerOrders(selectedCustomerId, controller.signal)
       .then((result) => {
         setCustomerOrders(result);
@@ -331,7 +378,6 @@ export default function App() {
       .finally(() => {
         if (!controller.signal.aborted) setIsLoadingOrders(false);
       });
-
     return () => controller.abort();
   }, [selectedCustomerId]);
 
@@ -340,12 +386,21 @@ export default function App() {
     [customerOrders, selectedOrderId],
   );
 
-  const deliveredCount =
-    customerOrders?.orders.filter((order) => order.status === "delivered").length ?? 0;
-  const activeCount =
-    customerOrders?.orders.filter((order) =>
-      (["processing", "shipped"] as OrderStatus[]).includes(order.status),
-    ).length ?? 0;
+  const openCount = customerOrders?.orders.filter((order) =>
+    (["processing", "shipped"] as OrderStatus[]).includes(order.status),
+  ).length ?? 0;
+  const totalValue = customerOrders?.orders.reduce((sum, order) => sum + order.total_minor, 0) ?? 0;
+  const currency = customerOrders?.orders[0]?.currency ?? "INR";
+
+  function resetConversation() {
+    setChatMessages([]);
+    setConversationId(null);
+    setChatDraft("");
+    setChatError(null);
+    setChatStatus(null);
+    setChatActivities([]);
+    setIsSendingChat(false);
+  }
 
   function handleCustomerChange(customerId: string) {
     chatRequestRef.current?.abort();
@@ -355,15 +410,6 @@ export default function App() {
     setCustomerOrders(null);
     setSelectedOrderId(null);
     resetConversation();
-  }
-
-  function resetConversation() {
-    setChatMessages([]);
-    setConversationId(null);
-    setChatDraft("");
-    setChatError(null);
-    setChatStatus(null);
-    setIsSendingChat(false);
   }
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -389,6 +435,7 @@ export default function App() {
     setChatMessages((current) => [...current, userMessage]);
     setChatDraft("");
     setChatError(null);
+    setChatActivities([]);
     setChatStatus("Understanding your question…");
     setIsSendingChat(true);
 
@@ -397,21 +444,23 @@ export default function App() {
         selectedCustomerId,
         message,
         conversationId,
-        setChatStatus,
+        (status) => {
+          setChatStatus(status);
+          setChatActivities((current) =>
+            current[current.length - 1] === status ? current : [...current, status],
+          );
+        },
         controller.signal,
       );
       setConversationId(response.conversation_id);
       setChatMessages((current) => [
         ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: response.answer,
-        },
+        { id: crypto.randomUUID(), role: "assistant", content: response.answer },
       ]);
     } catch (requestError) {
       if (requestError instanceof Error && requestError.name !== "AbortError") {
         setChatMessages((current) => current.filter((item) => item.id !== userMessage.id));
+        setChatActivities([]);
         setChatError("The assistant couldn’t respond. Please try sending your message again.");
         setChatDraft(message);
       }
@@ -428,151 +477,112 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">
-            OS
-          </span>
-          <div>
-            <strong>Order Support</strong>
-            <span>Demo workspace</span>
-          </div>
+          <span className="brand__mark" aria-hidden="true">OD</span>
+          <div><strong>Order Desk</strong><span>Customer operations</span></div>
         </div>
-        <span className="read-only-label">Read-only</span>
+        <div className="topbar__context">
+          <span className="environment"><i />Demo data</span>
+          <label htmlFor="customer-select">Customer</label>
+          <select
+            id="customer-select"
+            aria-label="Select customer"
+            value={selectedCustomerId}
+            onChange={(event) => handleCustomerChange(event.target.value)}
+            disabled={isLoadingCustomers || customers.length === 0}
+          >
+            {customers.map((customer) => (
+              <option key={customer.customer_id} value={customer.customer_id}>
+                {customer.customer_id}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
 
+      {customerOrders ? (
+        <div className="tabs" role="tablist" aria-label="Customer workspace">
+          <button
+            id="overview-tab"
+            className={`tab ${activeTab === "overview" ? "is-active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "overview"}
+            aria-controls="overview-panel"
+            tabIndex={activeTab === "overview" ? 0 : -1}
+            onClick={() => setActiveTab("overview")}
+            onKeyDown={handleTabKeyDown}
+          >Overview</button>
+          <button
+            id="assistant-tab"
+            className={`tab ${activeTab === "assistant" ? "is-active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "assistant"}
+            aria-controls="assistant-panel"
+            tabIndex={activeTab === "assistant" ? 0 : -1}
+            onClick={() => setActiveTab("assistant")}
+            onKeyDown={handleTabKeyDown}
+          >Assistant</button>
+        </div>
+      ) : null}
+
       <main>
-        <section className="page-intro">
-          <div>
-            <p className="eyebrow">Customer overview</p>
-            <h1>Orders at a glance</h1>
-            <p>Review a customer’s order history and delivery details in one place.</p>
-          </div>
-
-          <label className="customer-select">
-            <span>Viewing customer</span>
-            <select
-              value={selectedCustomerId}
-              onChange={(event) => handleCustomerChange(event.target.value)}
-              disabled={isLoadingCustomers || customers.length === 0}
-            >
-              {customers.map((customer) => (
-                <option key={customer.customer_id} value={customer.customer_id}>
-                  {customer.name} · {customer.customer_id}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-
         {error ? (
           <div className="error-state" role="alert">
-            <strong>Unable to load data</strong>
-            <span>{error}</span>
+            <strong>Unable to load data</strong><span>{error}</span>
           </div>
         ) : null}
-
         {isLoadingCustomers || isLoadingOrders ? <LoadingState /> : null}
 
         {!isLoadingCustomers && !isLoadingOrders && customerOrders ? (
-          <>
-            <section className="customer-strip" aria-label="Customer summary">
-              <div className="customer-identity">
-                <span className="customer-avatar" aria-hidden="true">
-                  {customerOrders.customer.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .join("")}
-                </span>
+          activeTab === "overview" ? (
+            <section id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
+              <div className="customer-strip">
                 <div>
-                  <strong>{customerOrders.customer.name}</strong>
-                  <span>{customerOrders.customer.email}</span>
+                  <span className="label">CUSTOMER RECORD</span>
+                  <h1>{customerOrders.customer.name}</h1>
+                  <a href={`mailto:${customerOrders.customer.email}`}>
+                    {customerOrders.customer.email}
+                  </a>
                 </div>
+                <dl className="metrics">
+                  <div><dt>Orders</dt><dd>{customerOrders.orders.length}</dd></div>
+                  <div><dt>Open</dt><dd>{openCount}</dd></div>
+                  <div><dt>Total value</dt><dd>{formatMoney(totalValue, currency)}</dd></div>
+                </dl>
               </div>
-              <dl className="summary-stats">
-                <div>
-                  <dt>Total orders</dt>
-                  <dd>{customerOrders.orders.length}</dd>
+
+              {customerOrders.orders.length > 0 && selectedOrder ? (
+                <div className="workspace-grid">
+                  <OrderList
+                    orders={customerOrders.orders}
+                    selectedOrderId={selectedOrderId}
+                    onSelect={setSelectedOrderId}
+                  />
+                  <OrderDetails order={selectedOrder} />
                 </div>
-                <div>
-                  <dt>Active</dt>
-                  <dd>{activeCount}</dd>
-                </div>
-                <div>
-                  <dt>Delivered</dt>
-                  <dd>{deliveredCount}</dd>
-                </div>
-              </dl>
+              ) : (
+                <div className="empty-state"><strong>No orders yet</strong></div>
+              )}
             </section>
-
-            <div className="workspace-tabs" role="tablist" aria-label="Customer workspace">
-              <button
-                id="overview-tab"
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "overview"}
-                aria-controls="overview-panel"
-                tabIndex={activeTab === "overview" ? 0 : -1}
-                onClick={() => setActiveTab("overview")}
-                onKeyDown={handleTabKeyDown}
-              >
-                <span>Order overview</span>
-                <small>{customerOrders.orders.length} orders</small>
-              </button>
-              <button
-                id="assistant-tab"
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "assistant"}
-                aria-controls="assistant-panel"
-                tabIndex={activeTab === "assistant" ? 0 : -1}
-                onClick={() => setActiveTab("assistant")}
-                onKeyDown={handleTabKeyDown}
-              >
-                <span>Ask assistant</span>
-                <small>Read-only help</small>
-              </button>
-            </div>
-
-            {activeTab === "overview" ? (
-              <div id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
-                {customerOrders.orders.length > 0 && selectedOrder ? (
-                  <div className="dashboard-grid">
-                    <OrderList
-                      orders={customerOrders.orders}
-                      selectedOrderId={selectedOrderId}
-                      onSelect={setSelectedOrderId}
-                    />
-                    <OrderDetails order={selectedOrder} />
-                  </div>
-                ) : (
-                  <div className="empty-state workspace-empty-state">
-                    <strong>No orders yet</strong>
-                    <span>This customer does not have any orders to display.</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div id="assistant-panel" role="tabpanel" aria-labelledby="assistant-tab">
-                <ChatPanel
-                  customerName={customerOrders.customer.name}
-                  messages={chatMessages}
-                  draft={chatDraft}
-                  isSending={isSendingChat}
-                  status={chatStatus}
-                  error={chatError}
-                  onDraftChange={setChatDraft}
-                  onSubmit={handleChatSubmit}
-                  onNewConversation={resetConversation}
-                />
-              </div>
-            )}
-          </>
+          ) : (
+            <section id="assistant-panel" role="tabpanel" aria-labelledby="assistant-tab">
+              <ChatPanel
+                customerName={customerOrders.customer.name}
+                messages={chatMessages}
+                activities={chatActivities}
+                draft={chatDraft}
+                isSending={isSendingChat}
+                currentStatus={chatStatus}
+                error={chatError}
+                onDraftChange={setChatDraft}
+                onSubmit={handleChatSubmit}
+                onNewConversation={resetConversation}
+              />
+            </section>
+          )
         ) : null}
       </main>
-
-      <footer>
-        Fictional data for demonstration purposes. <span aria-hidden="true">•</span> No changes
-        can be made from this dashboard
-      </footer>
     </div>
   );
 }

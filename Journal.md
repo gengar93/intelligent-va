@@ -73,6 +73,7 @@ floating-point errors.
 - FastAPI for the read-only HTTP API.
 - OpenRouter through the OpenAI-compatible Python SDK for model requests.
 - React, TypeScript, and Vite for the dashboard.
+- `react-markdown` with a restricted element set for assistant formatting.
 - `pnpm` for frontend dependencies.
 
 ## Completed milestones
@@ -179,6 +180,20 @@ looking for matching products, or fetching order details. The stream exposes onl
 status text and the final public response; internal tool arguments, results, and history stay
 on the backend. The existing non-streaming endpoint remains available.
 
+### 10. Selected Operations Console interface
+
+Explored three professional interface directions on `codex/ui-concepts` and selected the
+Operations Console structure with the Service Desk's near-black, warm-neutral, and orange
+palette. Ported that design into the real React dashboard while preserving the live API,
+customer isolation, conversation history, and streamed activity statuses.
+
+Customer identity and aggregate metrics now appear only in Overview. Assistant begins with a
+neutral, customer-aware welcome state and uses a persistent activity rail for the current
+request. The interface follows the system light/dark preference. Assistant messages render a
+restricted Markdown subset, including bold emphasis, without accepting raw model HTML. The
+standalone prototypes were removed after the port and remain recoverable from commit
+`cfb063b`.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -194,6 +209,8 @@ on the backend. The existing non-streaming endpoint remains available.
 - Start a fresh conversation explicitly or by changing customers.
 - Switch between order and assistant tabs without losing the current chat.
 - See live, tool-backed activity while the assistant works.
+- Follow the operating system's light or dark appearance automatically.
+- Render safe emphasis, lists, and inline code in assistant messages.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
