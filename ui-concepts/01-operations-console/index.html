@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Order Desk — Operations Console</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">OD</span>
+          <div>
+            <strong>Order Desk</strong>
+            <span>Customer operations</span>
+          </div>
+        </div>
+        <div class="topbar__context">
+          <span class="environment"><i></i> Demo data</span>
+          <label for="customer">Customer</label>
+          <select id="customer" aria-label="Select customer">
+            <option value="CUS-001">CUS-001</option>
+            <option value="CUS-002">CUS-002</option>
+            <option value="CUS-003">CUS-003</option>
+          </select>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Customer workspace" role="tablist">
+        <button id="overview-tab" class="tab is-active" role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">
+          Overview
+        </button>
+        <button id="assistant-tab" class="tab" role="tab" aria-selected="false" aria-controls="assistant" data-tab="assistant">
+          Assistant
+        </button>
+      </nav>
+
+      <main>
+        <section id="overview" class="view" role="tabpanel" aria-labelledby="overview-tab">
+          <div class="customer-strip">
+            <div>
+              <span class="label">Customer record</span>
+              <h1 id="customer-name">Aarav Sharma</h1>
+              <a id="customer-email" href="mailto:aarav.sharma@example.test">aarav.sharma@example.test</a>
+            </div>
+            <dl class="metrics">
+              <div><dt>Orders</dt><dd id="order-count">2</dd></div>
+              <div><dt>Open</dt><dd id="open-count">1</dd></div>
+              <div><dt>Lifetime value</dt><dd id="lifetime-value">₹11,797.00</dd></div>
+            </dl>
+          </div>
+
+          <div class="workspace-grid">
+            <section class="panel order-index" aria-labelledby="orders-title">
+              <header class="panel__header">
+                <div><span class="label">ORDER HISTORY</span><h2 id="orders-title">Recent orders</h2></div>
+                <button class="icon-button" type="button" title="Filter orders" aria-label="Filter orders">⌁</button>
+              </header>
+              <div class="order-list" id="order-list"></div>
+            </section>
+
+            <section class="panel order-record" aria-labelledby="record-title">
+              <header class="record-header">
+                <div>
+                  <span class="label">SELECTED ORDER</span>
+                  <h2 id="record-title">ORD-1042</h2>
+                  <span class="muted" id="record-date">Placed 4 Aug 2026, 2:20 pm</span>
+                </div>
+                <span class="status status--shipped" id="record-status">Shipped</span>
+              </header>
+              <dl class="fact-grid">
+                <div><dt>Estimated delivery</dt><dd id="delivery-date">11 Aug 2026</dd></div>
+                <div><dt>Payment</dt><dd id="payment">Visa ending in 1842</dd></div>
+                <div class="fact-grid__wide"><dt>Delivery address</dt><dd id="address">22 Lakeview Apartments, Koramangala, Bengaluru 560034</dd></div>
+              </dl>
+              <div class="line-items">
+                <div class="line-items__head"><strong>Line items</strong><span id="item-summary">1 item</span></div>
+                <table>
+                  <thead><tr><th>Product</th><th>SKU</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
+                  <tbody id="line-items-body"></tbody>
+                  <tfoot><tr><td colspan="4">Order total</td><td id="order-total">₹7,498.00</td></tr></tfoot>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="assistant" class="view chat-view" role="tabpanel" aria-labelledby="assistant-tab" hidden>
+          <div class="chat-toolbar">
+            <div><span class="label">READ-ONLY ASSISTANT</span><h1>Order inquiry</h1></div>
+            <button id="new-chat" class="secondary-button" type="button">New conversation</button>
+          </div>
+
+          <div class="assistant-layout">
+            <section class="conversation" aria-label="Conversation">
+              <div id="messages" class="messages" aria-live="polite"></div>
+              <div id="activity-inline" class="activity-inline" role="status" aria-live="polite" hidden>
+                <span class="spinner" aria-hidden="true"></span><span id="activity-text">Understanding your question…</span>
+              </div>
+              <form id="chat-form" class="composer">
+                <label class="sr-only" for="message">Ask about an order</label>
+                <textarea id="message" rows="2" placeholder="Ask about order status, items, delivery or payment…"></textarea>
+                <div class="composer__footer">
+                  <span>Read-only · Order data only</span>
+                  <button id="send" type="submit">Send <kbd>↵</kbd></button>
+                </div>
+              </form>
+            </section>
+
+            <aside class="activity-panel" aria-labelledby="activity-title">
+              <header><span class="label">CURRENT REQUEST</span><h2 id="activity-title">Activity</h2></header>
+              <ol id="activity-log" class="activity-log"></ol>
+              <p class="activity-note">Only customer-scoped, read-only tools can be used in this workspace.</p>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

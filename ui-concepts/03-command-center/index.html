@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Northstar Order Desk — Command Center</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="Primary navigation">
+        <a class="brand" href="#" aria-label="Northstar home">N<span>O</span></a>
+
+        <nav class="rail-nav" aria-label="Workspace views">
+          <button class="rail-action is-active" type="button" data-view="overview" aria-current="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 12h16M4 18.5h10" /></svg>
+            <span>Overview</span>
+          </button>
+          <button class="rail-action" type="button" data-view="assistant">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 3V5Z" /><path d="M9 9h6M9 12h4" /></svg>
+            <span>Assistant</span>
+          </button>
+        </nav>
+
+        <div class="rail-foot">
+          <span class="system-light" aria-label="System online"></span>
+          <span>Online</span>
+        </div>
+      </aside>
+
+      <header class="topbar">
+        <div>
+          <p class="product-label">Order operations</p>
+          <h1 id="view-title">Customer overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="customer-switcher" id="customer-switcher">
+            <span>Customer</span>
+            <select id="customer-select" aria-label="Select customer"></select>
+          </label>
+          <button class="command-button" type="button" id="command-button" title="Switch view">
+            <span>Jump to assistant</span><kbd>⌘ J</kbd>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="view is-visible" id="overview-view" aria-labelledby="view-title">
+          <div class="overview-grid">
+            <section class="customer-dossier" aria-label="Customer details">
+              <div class="identity-row">
+                <span class="avatar" id="customer-initials">AS</span>
+                <div>
+                  <p class="section-kicker">Customer record</p>
+                  <h2 id="customer-name">Aarav Sharma</h2>
+                  <a id="customer-email" href="mailto:aarav.sharma@example.test">aarav.sharma@example.test</a>
+                </div>
+                <span class="verified">Verified</span>
+              </div>
+              <dl class="metrics">
+                <div><dt>Total orders</dt><dd id="metric-orders">2</dd></div>
+                <div><dt>Active</dt><dd id="metric-active">1</dd></div>
+                <div><dt>Lifetime value</dt><dd id="metric-value">₹11,797</dd></div>
+              </dl>
+            </section>
+
+            <section class="order-index" aria-labelledby="orders-heading">
+              <div class="panel-heading">
+                <div><span class="index-number">01</span><h2 id="orders-heading">Order index</h2></div>
+                <span class="table-note">Newest first</span>
+              </div>
+              <div class="order-table" id="order-table"></div>
+            </section>
+
+            <section class="order-inspector" aria-labelledby="inspector-heading">
+              <div class="panel-heading">
+                <div><span class="index-number">02</span><h2 id="inspector-heading">Order inspector</h2></div>
+                <span class="status-tag" id="detail-status">Shipped</span>
+              </div>
+              <div id="order-detail"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="assistant-view" aria-labelledby="assistant-heading" hidden>
+          <div class="assistant-layout">
+            <section class="conversation-panel">
+              <div class="conversation-heading">
+                <div>
+                  <p class="section-kicker">Read-only workspace</p>
+                  <h2 id="assistant-heading">Order assistant</h2>
+                </div>
+                <button class="text-button" type="button" id="clear-chat">Clear conversation</button>
+              </div>
+
+              <div class="messages" id="messages" aria-live="polite">
+                <article class="message message-user">
+                  <div class="message-meta">You <time>10:42</time></div>
+                  <div class="message-body">How much were the headphones I ordered recently?</div>
+                </article>
+                <article class="message message-assistant">
+                  <div class="message-meta"><span class="assistant-mark">N</span> Order assistant <time>10:42</time></div>
+                  <div class="message-body">Your <strong>NoiseBeat H100 Headphones cost ₹7,498</strong>. They are part of order <strong>ORD-1042</strong>, placed on 4 Aug 2026.</div>
+                </article>
+              </div>
+
+              <form class="composer" id="chat-form">
+                <label for="chat-input">Ask about orders, deliveries, products, or payments</label>
+                <div class="composer-row">
+                  <textarea id="chat-input" rows="2" placeholder="e.g. When will that order arrive?" required></textarea>
+                  <button type="submit" id="send-button">
+                    <span>Send</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" /></svg>
+                  </button>
+                </div>
+                <p>Answers are grounded in the selected customer’s order records. No changes can be made.</p>
+              </form>
+            </section>
+
+            <aside class="activity-panel" aria-labelledby="activity-heading">
+              <div class="activity-title">
+                <span class="pulse-dot"></span>
+                <h2 id="activity-heading">Activity</h2>
+              </div>
+              <p class="activity-intro">A live, privacy-safe trace of the assistant’s work.</p>
+              <ol class="activity-list" id="activity-list">
+                <li class="is-complete"><span></span><div><strong>Question understood</strong><small>Intent and date context identified</small></div></li>
+                <li class="is-complete"><span></span><div><strong>Products matched</strong><small>Recent order items checked</small></div></li>
+                <li class="is-complete"><span></span><div><strong>Order details fetched</strong><small>Delivery and price records retrieved</small></div></li>
+                <li class="is-complete"><span></span><div><strong>Answer prepared</strong><small>Response grounded in order data</small></div></li>
+              </ol>
+              <div class="activity-footnote">
+                <span>Data access</span>
+                <strong>Read only</strong>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
