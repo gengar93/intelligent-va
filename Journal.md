@@ -205,6 +205,19 @@ action aligned to the right.
 Frontend linting, the TypeScript production build, and whitespace checks pass after the
 cleanup.
 
+### 12. Streamed assistant responses
+
+Extended the existing NDJSON chat stream so model-generated text is sent to the browser as
+it arrives. The OpenRouter adapter now reassembles streamed text and fragmented tool calls
+into the complete assistant message required for conversation history. The API emits text
+deltas before its authoritative result event, and the dashboard creates and updates one
+assistant message incrementally. Failed requests remove any partial response so the user can
+retry cleanly.
+
+The model, conversation, and API tests cover text deltas, fragmented tool-call arguments,
+and the browser-facing event sequence. All 45 Python tests pass. Frontend linting and the
+TypeScript production build also pass.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -220,13 +233,14 @@ cleanup.
 - Start a fresh conversation explicitly or by changing customers.
 - Switch between order and assistant tabs without losing the current chat.
 - See live, tool-backed activity while the assistant works.
+- Read model-generated answers as they stream into the conversation.
 - Follow the operating system's light or dark appearance automatically.
 - Render safe emphasis, lists, and inline code in assistant messages.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 43 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 45 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -277,6 +291,7 @@ pnpm build
 - There is no tracking history, payment status, invoice content, cancellation process,
   refund process, return process, or support-ticket model.
 - The dashboard and API currently run as separate development processes.
+- Tool selection and execution still happen before the useful final answer begins streaming.
 - Authentication is not implemented; the customer selector is for fictional demo data.
 
 ## Recommended next milestone

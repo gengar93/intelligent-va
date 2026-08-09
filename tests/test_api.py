@@ -161,15 +161,16 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(response.headers["content-type"].startswith("application/x-ndjson"))
         self.assertEqual(
             [event["type"] for event in events],
-            ["status", "status", "result"],
+            ["status", "status", "delta", "result"],
         )
         self.assertEqual(
-            [event["message"] for event in events[:-1]],
+            [event["message"] for event in events if event["type"] == "status"],
             [
                 "Understanding your question…",
                 "Fetching your orders…",
             ],
         )
+        self.assertEqual(events[-2], {"type": "delta", "content": "Your newest order is shipped."})
         self.assertEqual(
             set(events[-1]),
             {"type", "conversation_id", "answer"},

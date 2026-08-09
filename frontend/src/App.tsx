@@ -423,6 +423,7 @@ export default function App() {
       role: "user",
       content: message,
     };
+    const assistantMessageId = crypto.randomUUID();
     const controller = new AbortController();
     chatRequestRef.current = controller;
     setChatMessages((current) => [...current, userMessage]);
@@ -443,16 +444,44 @@ export default function App() {
             current[current.length - 1] === status ? current : [...current, status],
           );
         },
+        (content) => {
+          setChatMessages((current) => {
+            const existing = current.find((item) => item.id === assistantMessageId);
+            if (!existing) {
+              return [
+                ...current,
+                { id: assistantMessageId, role: "assistant", content },
+              ];
+            }
+            return current.map((item) =>
+              item.id === assistantMessageId
+                ? { ...item, content: item.content + content }
+                : item,
+            );
+          });
+        },
         controller.signal,
       );
       setConversationId(response.conversation_id);
-      setChatMessages((current) => [
-        ...current,
-        { id: crypto.randomUUID(), role: "assistant", content: response.answer },
-      ]);
+      setChatMessages((current) => {
+        const existing = current.find((item) => item.id === assistantMessageId);
+        if (!existing) {
+          return [
+            ...current,
+            { id: assistantMessageId, role: "assistant", content: response.answer },
+          ];
+        }
+        return current.map((item) =>
+          item.id === assistantMessageId ? { ...item, content: response.answer } : item,
+        );
+      });
     } catch (requestError) {
       if (requestError instanceof Error && requestError.name !== "AbortError") {
-        setChatMessages((current) => current.filter((item) => item.id !== userMessage.id));
+        setChatMessages((current) =>
+          current.filter(
+            (item) => item.id !== userMessage.id && item.id !== assistantMessageId,
+          ),
+        );
         setChatActivities([]);
         setChatError("The assistant couldn’t respond. Please try sending your message again.");
         setChatDraft(message);

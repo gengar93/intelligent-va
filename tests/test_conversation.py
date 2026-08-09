@@ -125,6 +125,10 @@ class ConversationLoopTests(unittest.TestCase):
         )
         self.assertEqual(events[-1]["type"], "result")
         self.assertEqual(events[-1]["answer"], "They cost ₹7,498.")
+        self.assertEqual(
+            [event["content"] for event in events if event["type"] == "delta"],
+            ["They cost ₹7,498."],
+        )
 
     def test_follow_up_receives_complete_previous_history(self):
         first_loop, _ = self.make_loop(

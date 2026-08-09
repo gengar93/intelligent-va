@@ -153,6 +153,12 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
                             )
                             continue
 
+                        if event["type"] == "delta":
+                            yield _encode_stream_event(
+                                {"type": "delta", "content": event["content"]}
+                            )
+                            continue
+
                         conversations[conversation_id] = {
                             "customer_id": customer_id,
                             "history": event["history"],

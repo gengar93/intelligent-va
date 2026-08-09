@@ -76,10 +76,15 @@ class ConversationLoop:
 
         tool_rounds = 0
         while True:
-            assistant_message = self._model_client.complete(
-                deepcopy(messages),
-                deepcopy(TOOL_DEFINITIONS),
-            )
+            assistant_message = None
+            for model_event in self._stream_model_completion(messages):
+                if model_event["type"] == "content_delta":
+                    yield {"type": "delta", "content": model_event["delta"]}
+                elif model_event["type"] == "message":
+                    assistant_message = model_event["message"]
+
+            if assistant_message is None:
+                raise RuntimeError("The model stream ended without a message")
             self._validate_assistant_message(assistant_message)
             messages.append(deepcopy(assistant_message))
 
@@ -105,6 +110,20 @@ class ConversationLoop:
                     ),
                 }
                 messages.append(self._execute_tool_call(tools, tool_call))
+
+    def _stream_model_completion(self, messages):
+        request_messages = deepcopy(messages)
+        request_tools = deepcopy(TOOL_DEFINITIONS)
+        stream_complete = getattr(self._model_client, "stream_complete", None)
+        if stream_complete is not None:
+            yield from stream_complete(request_messages, request_tools)
+            return
+
+        message = self._model_client.complete(request_messages, request_tools)
+        content = message.get("content")
+        if isinstance(content, str) and content:
+            yield {"type": "content_delta", "delta": content}
+        yield {"type": "message", "message": message}
 
     @staticmethod
     def _prepare_history(history):

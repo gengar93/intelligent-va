@@ -2,6 +2,7 @@ import type { ChatResponse, Customer, CustomerOrders } from "./types";
 
 type ChatStreamEvent =
   | { type: "status"; message: string }
+  | { type: "delta"; content: string }
   | { type: "result"; conversation_id: string; answer: string }
   | { type: "error"; message: string };
 
@@ -31,6 +32,7 @@ export async function streamChatMessage(
   message: string,
   conversationId: string | null,
   onStatus: (message: string) => void,
+  onDelta: (content: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatResponse> {
   const response = await fetch("/api/chat/stream", {
@@ -61,6 +63,8 @@ export async function streamChatMessage(
     const event = JSON.parse(line) as ChatStreamEvent;
     if (event.type === "status") {
       onStatus(event.message);
+    } else if (event.type === "delta") {
+      onDelta(event.content);
     } else if (event.type === "error") {
       throw new Error(event.message);
     } else if (event.type === "result") {
