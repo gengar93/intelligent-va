@@ -194,6 +194,17 @@ restricted Markdown subset, including bold emphasis, without accepting raw model
 standalone prototypes were removed after the port and remain recoverable from commit
 `cfb063b`.
 
+### 11. Simplified support interface copy
+
+Simplified the interface language so the workspace emphasizes the customer task instead of
+implementation details. The application is now branded as Support Console, the assistant
+uses a single descriptive heading, and redundant demo and read-only labels were removed from
+the top bar, message composer, and activity rail. The composer footer now keeps its send
+action aligned to the right.
+
+Frontend linting, the TypeScript production build, and whitespace checks pass after the
+cleanup.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.

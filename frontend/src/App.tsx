@@ -213,10 +213,7 @@ function ChatPanel({
   return (
     <div className="chat-view">
       <div className="chat-toolbar">
-        <div>
-          <span className="label">READ-ONLY ASSISTANT</span>
-          <h1>Order inquiry</h1>
-        </div>
+        <h1>Order assistant</h1>
         <button
           className="secondary-button"
           type="button"
@@ -232,7 +229,7 @@ function ChatPanel({
           <div className="messages" aria-live="polite">
             {messages.length === 0 ? (
               <div className="conversation-empty">
-                <span aria-hidden="true">OD</span>
+                <span aria-hidden="true">SC</span>
                 <strong>Hello, {customerName}</strong>
                 <p>Type your order question below to get started.</p>
               </div>
@@ -282,7 +279,6 @@ function ChatPanel({
               }}
             />
             <div className="composer__footer">
-              <span>Read-only · Order data only</span>
               <button type="submit" disabled={isSending || !draft.trim()}>
                 {isSending ? "Working" : "Send"} <kbd>↵</kbd>
               </button>
@@ -314,9 +310,6 @@ function ChatPanel({
               );
             })}
           </ol>
-          <p className="activity-note">
-            Only customer-scoped, read-only tools can be used in this workspace.
-          </p>
         </aside>
       </div>
     </div>
@@ -477,11 +470,10 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">OD</span>
-          <div><strong>Order Desk</strong><span>Customer operations</span></div>
+          <span className="brand__mark" aria-hidden="true">SC</span>
+          <strong>Support Console</strong>
         </div>
         <div className="topbar__context">
-          <span className="environment"><i />Demo data</span>
           <label htmlFor="customer-select">Customer</label>
           <select
             id="customer-select"
