@@ -166,6 +166,19 @@ not sent to the browser. A live browser test verified a product-price question, 
 follow-up using preserved history, and conversation reset on customer change. The layout was
 also verified at desktop and mobile widths.
 
+### 9. Tabbed workspace and live activity
+
+Separated the order overview and assistant into customer-workspace tabs, so the chatbot is
+available without scrolling past the order tables. Switching tabs preserves the visible chat;
+changing customers still starts a fresh conversation. The tabs support mouse and keyboard
+navigation and adapt to narrow screens.
+
+Added `POST /api/chat/stream`, which sends newline-delimited events while the conversation
+loop runs. Statuses are tied to real activity: understanding the question, fetching orders,
+looking for matching products, or fetching order details. The stream exposes only friendly
+status text and the final public response; internal tool arguments, results, and history stay
+on the backend. The existing non-streaming endpoint remains available.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -179,11 +192,13 @@ also verified at desktop and mobile widths.
 - Continue follow-up conversations using earlier hidden tool results.
 - Chat with the assistant from the selected customer's dashboard.
 - Start a fresh conversation explicitly or by changing customers.
+- Switch between order and assistant tabs without losing the current chat.
+- See live, tool-backed activity while the assistant works.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 41 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 43 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project

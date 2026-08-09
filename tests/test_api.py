@@ -132,6 +132,50 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(set(response.json()), {"conversation_id", "answer"})
 
+    def test_streams_real_activity_and_a_lean_result(self):
+        self.model_client.responses = [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call-orders",
+                        "type": "function",
+                        "function": {
+                            "name": "list_orders",
+                            "arguments": json.dumps({}),
+                        },
+                    }
+                ],
+            },
+            {"role": "assistant", "content": "Your newest order is shipped."},
+        ]
+
+        response = self.client.post(
+            "/api/chat/stream",
+            json={"customer_id": "CUS-001", "message": "Where is my latest order?"},
+        )
+        events = [json.loads(line) for line in response.text.splitlines()]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.headers["content-type"].startswith("application/x-ndjson"))
+        self.assertEqual(
+            [event["type"] for event in events],
+            ["status", "status", "result"],
+        )
+        self.assertEqual(
+            [event["message"] for event in events[:-1]],
+            [
+                "Understanding your question…",
+                "Fetching your orders…",
+            ],
+        )
+        self.assertEqual(
+            set(events[-1]),
+            {"type", "conversation_id", "answer"},
+        )
+        self.assertEqual(events[-1]["answer"], "Your newest order is shipped.")
+
     def test_rejects_using_a_conversation_for_another_customer(self):
         self.model_client.responses = [
             {"role": "assistant", "content": "First response"}

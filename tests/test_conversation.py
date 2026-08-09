@@ -96,6 +96,36 @@ class ConversationLoopTests(unittest.TestCase):
         self.assertEqual(result["history"][5]["tool_call_id"], "call-details")
         self.assertEqual(len(client.requests), 3)
 
+    def test_streams_statuses_for_actual_tool_activity(self):
+        loop, _ = self.make_loop(
+            [
+                tool_call_message(
+                    "call-candidates",
+                    "get_recent_product_candidates",
+                    {"lookback_days": 7},
+                ),
+                tool_call_message(
+                    "call-details",
+                    "get_order_details",
+                    {"order_id": "ORD-1042"},
+                ),
+                {"role": "assistant", "content": "They cost ₹7,498."},
+            ]
+        )
+
+        events = list(loop.stream_turn("CUS-001", "How much were my headphones?"))
+
+        self.assertEqual(
+            [event.get("message") for event in events if event["type"] == "status"],
+            [
+                "Understanding your question…",
+                "Looking for matching products…",
+                "Fetching order details…",
+            ],
+        )
+        self.assertEqual(events[-1]["type"], "result")
+        self.assertEqual(events[-1]["answer"], "They cost ₹7,498.")
+
     def test_follow_up_receives_complete_previous_history(self):
         first_loop, _ = self.make_loop(
             [

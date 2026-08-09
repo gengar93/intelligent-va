@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 
-import { fetchCustomerOrders, fetchCustomers, sendChatMessage } from "./api";
+import { fetchCustomerOrders, fetchCustomers, streamChatMessage } from "./api";
 import type { ChatMessage, Customer, CustomerOrders, Order, OrderStatus } from "./types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -181,6 +181,7 @@ function ChatPanel({
   messages,
   draft,
   isSending,
+  status,
   error,
   onDraftChange,
   onSubmit,
@@ -190,6 +191,7 @@ function ChatPanel({
   messages: ChatMessage[];
   draft: string;
   isSending: boolean;
+  status: string | null;
   error: string | null;
   onDraftChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -240,10 +242,8 @@ function ChatPanel({
           <div className="chat-message chat-message--assistant chat-message--thinking" role="status">
             <span>Assistant</span>
             <p>
-              <i />
-              <i />
-              <i />
-              <span className="sr-only">Thinking…</span>
+              <i aria-hidden="true" />
+              {status ?? "Understanding your question…"}
             </p>
           </div>
         ) : null}
@@ -286,6 +286,8 @@ export default function App() {
   const [chatDraft, setChatDraft] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatStatus, setChatStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "assistant">("overview");
   const chatRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -360,7 +362,16 @@ export default function App() {
     setConversationId(null);
     setChatDraft("");
     setChatError(null);
+    setChatStatus(null);
     setIsSendingChat(false);
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const nextTab = activeTab === "overview" ? "assistant" : "overview";
+    setActiveTab(nextTab);
+    document.getElementById(`${nextTab}-tab`)?.focus();
   }
 
   async function handleChatSubmit(event: FormEvent<HTMLFormElement>) {
@@ -378,13 +389,15 @@ export default function App() {
     setChatMessages((current) => [...current, userMessage]);
     setChatDraft("");
     setChatError(null);
+    setChatStatus("Understanding your question…");
     setIsSendingChat(true);
 
     try {
-      const response = await sendChatMessage(
+      const response = await streamChatMessage(
         selectedCustomerId,
         message,
         conversationId,
+        setChatStatus,
         controller.signal,
       );
       setConversationId(response.conversation_id);
@@ -406,6 +419,7 @@ export default function App() {
       if (chatRequestRef.current === controller) {
         chatRequestRef.current = null;
         setIsSendingChat(false);
+        setChatStatus(null);
       }
     }
   }
@@ -489,32 +503,68 @@ export default function App() {
               </dl>
             </section>
 
-            {customerOrders.orders.length > 0 && selectedOrder ? (
-              <div className="dashboard-grid">
-                <OrderList
-                  orders={customerOrders.orders}
-                  selectedOrderId={selectedOrderId}
-                  onSelect={setSelectedOrderId}
-                />
-                <OrderDetails order={selectedOrder} />
+            <div className="workspace-tabs" role="tablist" aria-label="Customer workspace">
+              <button
+                id="overview-tab"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "overview"}
+                aria-controls="overview-panel"
+                tabIndex={activeTab === "overview" ? 0 : -1}
+                onClick={() => setActiveTab("overview")}
+                onKeyDown={handleTabKeyDown}
+              >
+                <span>Order overview</span>
+                <small>{customerOrders.orders.length} orders</small>
+              </button>
+              <button
+                id="assistant-tab"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "assistant"}
+                aria-controls="assistant-panel"
+                tabIndex={activeTab === "assistant" ? 0 : -1}
+                onClick={() => setActiveTab("assistant")}
+                onKeyDown={handleTabKeyDown}
+              >
+                <span>Ask assistant</span>
+                <small>Read-only help</small>
+              </button>
+            </div>
+
+            {activeTab === "overview" ? (
+              <div id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
+                {customerOrders.orders.length > 0 && selectedOrder ? (
+                  <div className="dashboard-grid">
+                    <OrderList
+                      orders={customerOrders.orders}
+                      selectedOrderId={selectedOrderId}
+                      onSelect={setSelectedOrderId}
+                    />
+                    <OrderDetails order={selectedOrder} />
+                  </div>
+                ) : (
+                  <div className="empty-state workspace-empty-state">
+                    <strong>No orders yet</strong>
+                    <span>This customer does not have any orders to display.</span>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="empty-state">
-                <strong>No orders yet</strong>
-                <span>This customer does not have any orders to display.</span>
+              <div id="assistant-panel" role="tabpanel" aria-labelledby="assistant-tab">
+                <ChatPanel
+                  customerName={customerOrders.customer.name}
+                  messages={chatMessages}
+                  draft={chatDraft}
+                  isSending={isSendingChat}
+                  status={chatStatus}
+                  error={chatError}
+                  onDraftChange={setChatDraft}
+                  onSubmit={handleChatSubmit}
+                  onNewConversation={resetConversation}
+                />
               </div>
             )}
-
-            <ChatPanel
-              customerName={customerOrders.customer.name}
-              messages={chatMessages}
-              draft={chatDraft}
-              isSending={isSendingChat}
-              error={chatError}
-              onDraftChange={setChatDraft}
-              onSubmit={handleChatSubmit}
-              onNewConversation={resetConversation}
-            />
           </>
         ) : null}
       </main>

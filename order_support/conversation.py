@@ -27,6 +27,13 @@ payment, delivery, or customer record.
 """
 
 
+TOOL_STATUS_MESSAGES = {
+    "list_orders": "Fetching your orders…",
+    "get_recent_product_candidates": "Looking for matching products…",
+    "get_order_details": "Fetching order details…",
+}
+
+
 class ConversationLoop:
     def __init__(
         self,
@@ -44,6 +51,15 @@ class ConversationLoop:
         self._today_provider = today_provider
 
     def run_turn(self, customer_id, user_message, history=None):
+        result = None
+        for event in self.stream_turn(customer_id, user_message, history):
+            if event["type"] == "result":
+                result = event
+        if result is None:
+            raise RuntimeError("The conversation ended without a result")
+        return {"answer": result["answer"], "history": result["history"]}
+
+    def stream_turn(self, customer_id, user_message, history=None):
         customer_id = customer_id.strip()
         user_message = user_message.strip()
         if not customer_id:
@@ -53,6 +69,7 @@ class ConversationLoop:
 
         messages = self._prepare_history(history)
         messages.append({"role": "user", "content": user_message})
+        yield {"type": "status", "message": "Understanding your question…"}
 
         tool_kwargs = {}
         if self._today_provider is not None:
@@ -73,13 +90,22 @@ class ConversationLoop:
                 answer = assistant_message.get("content")
                 if not isinstance(answer, str) or not answer.strip():
                     raise RuntimeError("The model returned neither tool calls nor an answer")
-                return {"answer": answer, "history": messages}
+                yield {"type": "result", "answer": answer, "history": messages}
+                return
 
             if tool_rounds >= self._max_tool_rounds:
                 raise RuntimeError("The model exceeded the maximum number of tool rounds")
             tool_rounds += 1
 
             for tool_call in tool_calls:
+                tool_name = tool_call.get("function", {}).get("name")
+                yield {
+                    "type": "status",
+                    "message": TOOL_STATUS_MESSAGES.get(
+                        tool_name,
+                        "Checking your order information…",
+                    ),
+                }
                 messages.append(self._execute_tool_call(tools, tool_call))
 
     @staticmethod

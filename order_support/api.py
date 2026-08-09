@@ -1,10 +1,12 @@
 """FastAPI application exposing read-only order data and chat."""
 
+import json
 from pathlib import Path
 from threading import Lock
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from order_support.config import OpenRouterSettings
 from order_support.conversation import ConversationLoop
@@ -22,6 +24,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "data" / "order_support.db"
 
 
+def _encode_stream_event(event):
+    return json.dumps(event, ensure_ascii=False) + "\n"
+
+
 def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
     repository = OrderRepository(database_path)
     conversation_loop = None
@@ -36,6 +42,31 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
                 client = OpenRouterChatClient(OpenRouterSettings.from_env())
             conversation_loop = ConversationLoop(client, repository)
         return conversation_loop
+
+    def validate_chat_request(request):
+        customer_id = request.customer_id.strip()
+        message = request.message.strip()
+        if not customer_id or not message:
+            raise HTTPException(
+                status_code=422,
+                detail="customer_id and message must not be blank",
+            )
+        if repository.get_customer_orders(customer_id) is None:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        return customer_id, message
+
+    def get_session_history(customer_id, conversation_id):
+        if conversation_id is None:
+            return None
+        session = conversations.get(conversation_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        if session["customer_id"] != customer_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Conversation belongs to a different customer",
+            )
+        return session["history"]
 
     application = FastAPI(
         title="Order Support API",
@@ -59,31 +90,11 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
 
     @application.post("/api/chat", response_model=ChatResponse)
     def chat(request: ChatRequest):
-        customer_id = request.customer_id.strip()
-        message = request.message.strip()
-        if not customer_id or not message:
-            raise HTTPException(
-                status_code=422,
-                detail="customer_id and message must not be blank",
-            )
-        if repository.get_customer_orders(customer_id) is None:
-            raise HTTPException(status_code=404, detail="Customer not found")
+        customer_id, message = validate_chat_request(request)
 
         with conversation_lock:
-            conversation_id = request.conversation_id
-            history = None
-            if conversation_id is not None:
-                session = conversations.get(conversation_id)
-                if session is None:
-                    raise HTTPException(status_code=404, detail="Conversation not found")
-                if session["customer_id"] != customer_id:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="Conversation belongs to a different customer",
-                    )
-                history = session["history"]
-            else:
-                conversation_id = str(uuid4())
+            history = get_session_history(customer_id, request.conversation_id)
+            conversation_id = request.conversation_id or str(uuid4())
 
             try:
                 loop = get_conversation_loop()
@@ -115,6 +126,57 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
                 conversation_id=conversation_id,
                 answer=result["answer"],
             )
+
+    @application.post("/api/chat/stream")
+    def stream_chat(request: ChatRequest):
+        customer_id, message = validate_chat_request(request)
+        with conversation_lock:
+            get_session_history(customer_id, request.conversation_id)
+        conversation_id = request.conversation_id or str(uuid4())
+
+        def generate_events():
+            with conversation_lock:
+                history = get_session_history(customer_id, request.conversation_id)
+                try:
+                    loop = get_conversation_loop()
+                except ValueError:
+                    yield _encode_stream_event(
+                        {"type": "error", "message": "The assistant is not configured"}
+                    )
+                    return
+
+                try:
+                    for event in loop.stream_turn(customer_id, message, history=history):
+                        if event["type"] == "status":
+                            yield _encode_stream_event(
+                                {"type": "status", "message": event["message"]}
+                            )
+                            continue
+
+                        conversations[conversation_id] = {
+                            "customer_id": customer_id,
+                            "history": event["history"],
+                        }
+                        yield _encode_stream_event(
+                            {
+                                "type": "result",
+                                "conversation_id": conversation_id,
+                                "answer": event["answer"],
+                            }
+                        )
+                except (TypeError, ValueError, RuntimeError):
+                    yield _encode_stream_event(
+                        {
+                            "type": "error",
+                            "message": "The assistant could not complete the request",
+                        }
+                    )
+
+        return StreamingResponse(
+            generate_events(),
+            media_type="application/x-ndjson",
+            headers={"Cache-Control": "no-store"},
+        )
 
     return application
 
