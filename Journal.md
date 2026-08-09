@@ -218,6 +218,23 @@ The model, conversation, and API tests cover text deltas, fragmented tool-call a
 and the browser-facing event sequence. All 45 Python tests pass. Frontend linting and the
 TypeScript production build also pass.
 
+### 13. Deterministic assistant evaluation baseline
+
+Added a deterministic evaluation layer before introducing subjective model judging. Five
+scenarios derived from the read-only portions of the target conversations cover product
+resolution, cancelled and latest orders, a follow-up that relies on conversation history,
+and refusal of an unsupported delivery change. Exact checks enforce required tool sequences
+and answer facts, the read-only tool allowlist, absence of customer IDs in tool arguments,
+and customer isolation across tool arguments, tool results, and answer order IDs. The runner
+reports structured JSON, includes answers for failure diagnosis, supports filtering by
+scenario name, and records the configured model.
+
+One live baseline run passed the five scenarios and six evaluated turns. Tightening the
+refusal check initially exposed an evaluator false negative for the phrase “not able”; after
+adding that legitimate alternative and a regression test, a fresh focused live run passed.
+This is a one-run baseline, not yet evidence of consistency across nondeterministic model
+runs. All 54 Python tests and whitespace checks pass.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -234,13 +251,14 @@ TypeScript production build also pass.
 - Switch between order and assistant tabs without losing the current chat.
 - See live, tool-backed activity while the assistant works.
 - Read model-generated answers as they stream into the conversation.
+- Run deterministic, customer-isolated evaluations against the configured model.
 - Follow the operating system's light or dark appearance automatically.
 - Render safe emphasis, lists, and inline code in assistant messages.
 - Reject invalid database quantities and prices.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 45 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 54 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -279,6 +297,13 @@ pnpm lint
 pnpm build
 ```
 
+Run the live deterministic evaluation catalog, or one matching scenario:
+
+```bash
+uv run python -m scripts.run_evaluations
+uv run python -m scripts.run_evaluations --scenario "latest order"
+```
+
 ## Current limitations
 
 - Complete history is intentionally unbounded for the first version; long conversations will
@@ -292,17 +317,22 @@ pnpm build
   refund process, return process, or support-ticket model.
 - The dashboard and API currently run as separate development processes.
 - Tool selection and execution still happen before the useful final answer begins streaming.
+- Deterministic answer checks currently use explicit accepted phrases and can require careful
+  updates when valid wording changes.
+- The live evaluation baseline has only one run per scenario; repeated-run consistency,
+  broader paraphrase coverage, human review, and a calibrated LLM judge are not implemented.
 - Authentication is not implemented; the customer selector is for fictional demo data.
 
 ## Recommended next milestone
 
-Exercise the read-only portions of the target sample conversations and additional natural-
-language variations. Use the results to identify tool or prompt gaps, then agree on explicit
-completion criteria for the first read-only version.
+Expand the deterministic catalog with natural-language variations and run each important
+scenario repeatedly. Use the failure categories and targeted human review to distinguish
+assistant defects from evaluator defects, then define completion thresholds before adding a
+calibrated LLM judge.
 
 ## Later roadmap
 
-1. Test natural-language variations and read-only portions of the sample conversations.
-2. Define completion criteria for the first read-only version.
+1. Add paraphrases and repeated-run reporting to the deterministic evaluation catalog.
+2. Define completion criteria and calibrate an LLM judge against human-reviewed examples.
 3. Only then expand the data model and tools for split shipments, cancellations, refunds,
    returns, address changes, invoices, and support tickets.
