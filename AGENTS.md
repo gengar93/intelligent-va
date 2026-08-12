@@ -11,6 +11,9 @@ work, and summarize changes and verification afterward.
 Suggest a Git commit when a meaningful milestone is complete, and obtain the user's
 confirmation immediately before creating it.
 
+After creating a user-approved commit, push the current branch to its configured remote
+unless the user explicitly asks not to push.
+
 Update `Journal.md` after each implemented milestone so it reflects current decisions,
 functionality, verification, limitations, and next steps.
 
