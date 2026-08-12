@@ -27,11 +27,110 @@ class DatabaseTests(unittest.TestCase):
                 "SELECT COUNT(*) FROM customers"
             ).fetchone()[0]
             order_count = connection.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+            ticket_count = connection.execute("SELECT COUNT(*) FROM tickets").fetchone()[0]
+            invoice_count = connection.execute("SELECT COUNT(*) FROM invoices").fetchone()[0]
             violations = connection.execute("PRAGMA foreign_key_check").fetchall()
 
         self.assertEqual(customer_count, 3)
         self.assertEqual(order_count, 5)
+        self.assertEqual(ticket_count, 3)
+        self.assertEqual(invoice_count, 1)
         self.assertEqual(violations, [])
+
+    def test_seed_data_covers_invoice_ticket_lifecycle_cases(self):
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT t.status, i.invoice_number, i.document_url
+                FROM tickets AS t
+                LEFT JOIN invoices AS i ON i.generation_ticket_id = t.ticket_id
+                ORDER BY t.ticket_id
+                """
+            ).fetchall()
+
+        self.assertEqual(
+            [(row["status"], row["invoice_number"]) for row in rows],
+            [
+                ("completed", "INV-2026-00481"),
+                ("in_progress", None),
+                ("failed", None),
+            ],
+        )
+        self.assertEqual(
+            rows[0]["document_url"],
+            "/mock-invoices/INV-2026-00481.pdf",
+        )
+
+    def test_prevents_two_active_invoice_tickets_for_one_order(self):
+        with self.connect() as connection, self.assertRaises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO tickets (
+                    ticket_id, ticket_type, order_id, status,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "TKT-DUPLICATE",
+                    "invoice_generation",
+                    "ORD-1087",
+                    "queued",
+                    "2026-08-11T11:16:00+05:30",
+                    "2026-08-11T11:16:00+05:30",
+                ),
+            )
+
+    def test_rejects_invoice_total_that_does_not_balance(self):
+        with self.connect() as connection, self.assertRaises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO invoices (
+                    invoice_id, invoice_number, order_id, generation_ticket_id,
+                    issued_at, billing_name, billing_address, currency,
+                    subtotal_minor, tax_minor, total_minor, document_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "INV-INVALID",
+                    "INV-2026-INVALID",
+                    "ORD-1064",
+                    "TKT-7003",
+                    "2026-08-11T12:22:00+05:30",
+                    "Kabir Khan",
+                    "51 Crescent Residency, Bandra West, Mumbai 400050",
+                    "INR",
+                    10000,
+                    1800,
+                    10000,
+                    "/mock-invoices/INV-2026-INVALID.pdf",
+                ),
+            )
+
+    def test_invoice_requires_completed_generation_ticket_for_same_order(self):
+        with self.connect() as connection, self.assertRaises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO invoices (
+                    invoice_id, invoice_number, order_id, generation_ticket_id,
+                    issued_at, billing_name, billing_address, currency,
+                    subtotal_minor, tax_minor, total_minor, document_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "INV-PREMATURE",
+                    "INV-2026-PREMATURE",
+                    "ORD-1087",
+                    "TKT-7002",
+                    "2026-08-11T11:16:00+05:30",
+                    "Meera Iyer",
+                    "8 Palm Grove, Adyar, Chennai 600020",
+                    "INR",
+                    339800,
+                    0,
+                    339800,
+                    "/mock-invoices/INV-2026-PREMATURE.pdf",
+                ),
+            )
 
     def test_reads_order_details_and_items(self):
         with self.connect() as connection:

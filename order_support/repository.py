@@ -116,6 +116,80 @@ class OrderRepository:
             None,
         )
 
+    def get_order_invoice(self, customer_id, order_id):
+        with self._connect() as connection:
+            invoice_row = connection.execute(
+                """
+                SELECT
+                    i.invoice_id,
+                    i.invoice_number,
+                    i.order_id,
+                    i.generation_ticket_id,
+                    i.issued_at,
+                    i.billing_name,
+                    i.billing_address,
+                    i.currency,
+                    i.subtotal_minor,
+                    i.tax_minor,
+                    i.total_minor,
+                    i.document_url
+                FROM invoices AS i
+                JOIN orders AS o ON o.order_id = i.order_id
+                WHERE o.customer_id = ? AND lower(i.order_id) = lower(?)
+                """,
+                (customer_id, order_id.strip()),
+            ).fetchone()
+
+            if invoice_row is None:
+                return None
+
+            item_rows = connection.execute(
+                """
+                SELECT
+                    invoice_item_id,
+                    source_order_item_id,
+                    description,
+                    quantity,
+                    unit_price_minor,
+                    tax_minor,
+                    line_total_minor
+                FROM invoice_items
+                WHERE invoice_id = ?
+                ORDER BY invoice_item_id
+                """,
+                (invoice_row["invoice_id"],),
+            ).fetchall()
+
+        invoice = dict(invoice_row)
+        invoice["items"] = [dict(row) for row in item_rows]
+        return invoice
+
+    def get_latest_invoice_ticket(self, customer_id, order_id):
+        with self._connect() as connection:
+            ticket_row = connection.execute(
+                """
+                SELECT
+                    t.ticket_id,
+                    t.ticket_type,
+                    t.order_id,
+                    t.status,
+                    t.created_at,
+                    t.updated_at,
+                    t.completed_at,
+                    t.failure_reason
+                FROM tickets AS t
+                JOIN orders AS o ON o.order_id = t.order_id
+                WHERE o.customer_id = ?
+                  AND lower(t.order_id) = lower(?)
+                  AND t.ticket_type = 'invoice_generation'
+                ORDER BY t.created_at DESC
+                LIMIT 1
+                """,
+                (customer_id, order_id.strip()),
+            ).fetchone()
+
+        return None if ticket_row is None else dict(ticket_row)
+
     def get_recent_product_candidates(self, customer_id, cutoff_date):
         cutoff_value = cutoff_date.isoformat() if cutoff_date is not None else None
 

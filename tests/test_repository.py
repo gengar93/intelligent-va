@@ -49,6 +49,35 @@ class RepositoryTests(unittest.TestCase):
             with self.assertRaises(sqlite3.OperationalError):
                 connection.execute("DELETE FROM customers")
 
+    def test_returns_customer_scoped_invoice_with_snapshot_items(self):
+        invoice = self.repository.get_order_invoice("CUS-001", "ord-1042")
+        another_customers_invoice = self.repository.get_order_invoice(
+            "CUS-002", "ORD-1042"
+        )
+
+        self.assertEqual(invoice["invoice_number"], "INV-2026-00481")
+        self.assertEqual(invoice["billing_name"], "Aarav Sharma")
+        self.assertEqual(invoice["total_minor"], 749800)
+        self.assertEqual(
+            invoice["document_url"],
+            "/mock-invoices/INV-2026-00481.pdf",
+        )
+        self.assertEqual(
+            invoice["items"][0]["description"],
+            "NoiseBeat H100 Headphones",
+        )
+        self.assertIsNone(another_customers_invoice)
+
+    def test_returns_latest_customer_scoped_invoice_ticket(self):
+        ticket = self.repository.get_latest_invoice_ticket("CUS-002", "ord-1087")
+        another_customers_ticket = self.repository.get_latest_invoice_ticket(
+            "CUS-001", "ORD-1087"
+        )
+
+        self.assertEqual(ticket["ticket_id"], "TKT-7002")
+        self.assertEqual(ticket["status"], "in_progress")
+        self.assertIsNone(another_customers_ticket)
+
 
 if __name__ == "__main__":
     unittest.main()

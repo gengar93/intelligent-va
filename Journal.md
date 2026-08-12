@@ -1,6 +1,6 @@
 # Project Journal
 
-Last updated: 9 August 2026
+Last updated: 12 August 2026
 
 ## Goal
 
@@ -65,6 +65,19 @@ The order stores `delivery_address` as a historical snapshot and
 details are never stored. Item prices are stored on `order_items` because a product's current
 price may change after purchase. Monetary values use integer minor units to avoid
 floating-point errors.
+
+### Invoice generation data model
+
+Invoice requests are represented as generic `tickets` whose initial supported type is
+`invoice_generation`. The current status is stored on the ticket for efficient reads, while
+`ticket_status_history` records every transition for auditability. A partial unique index
+prevents more than one queued or in-progress invoice request for the same order.
+
+An `invoice` is created only after generation succeeds. It has a one-to-one relationship
+with an order for this version and links back to the ticket that generated it. Billing
+identity, address, totals, and `invoice_items` are stored snapshots, so later changes to
+customer, product, or order data do not change what repository reads return. The current
+`document_url` is deliberately a mock path; actual PDF generation is outside this milestone.
 
 ### Technology
 
@@ -235,11 +248,24 @@ adding that legitimate alternative and a regression test, a fresh focused live r
 This is a one-run baseline, not yet evidence of consistency across nondeterministic model
 runs. All 54 Python tests and whitespace checks pass.
 
+### 14. Invoice generation data model
+
+Added ticket lifecycle, ticket status history, invoice, and invoice-item tables. Seed data
+covers completed, in-progress, and failed generation cases. The completed example exposes a
+mock document URL. Customer-scoped repository reads return either an issued invoice with its
+snapshot items or the latest invoice-generation ticket for an order.
+
+Database constraints reject duplicate active requests, unbalanced invoice totals, invalid
+statuses, and invalid monetary or quantity values. An invoice also requires a completed
+generation ticket for the same order. Actual ticket creation, state-changing application
+services, API/tool exposure, and PDF generation remain future work.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
 - List fictional customers.
 - Retrieve only the orders belonging to one customer.
+- Retrieve customer-scoped invoice snapshots and latest invoice ticket status.
 - Show order status, dates, address, payment method, items, quantities, prices, and totals.
 - Switch between customers and orders in the dashboard.
 - Execute three customer-scoped, read-only order tools without a language model.
@@ -258,7 +284,7 @@ runs. All 54 Python tests and whitespace checks pass.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 54 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 60 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -313,8 +339,10 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 - Orders have one delivery schedule; split shipments are unsupported.
 - A customer change must begin a fresh internal history so previous customer tool results do
   not remain in model context.
-- There is no tracking history, payment status, invoice content, cancellation process,
-  refund process, return process, or support-ticket model.
+- Invoice and ticket records are read-only; request creation, lifecycle processing, API/tool
+  exposure, and real document generation are not implemented.
+- There is no tracking history, payment status, cancellation process, refund process, or
+  return process.
 - The dashboard and API currently run as separate development processes.
 - Tool selection and execution still happen before the useful final answer begins streaming.
 - Deterministic answer checks currently use explicit accepted phrases and can require careful
@@ -334,5 +362,5 @@ calibrated LLM judge.
 
 1. Add paraphrases and repeated-run reporting to the deterministic evaluation catalog.
 2. Define completion criteria and calibrate an LLM judge against human-reviewed examples.
-3. Only then expand the data model and tools for split shipments, cancellations, refunds,
-   returns, address changes, invoices, and support tickets.
+3. Add application services and tools for invoice requests before expanding to split
+   shipments, cancellations, refunds, returns, and address changes.
