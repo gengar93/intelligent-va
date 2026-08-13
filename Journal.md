@@ -1,13 +1,13 @@
 # Project Journal
 
-Last updated: 12 August 2026
+Last updated: 13 August 2026
 
 ## Goal
 
-Build an order-support chatbot incrementally. The first version is intentionally read-only:
-a customer can ask about their orders, items, prices, status, and delivery details. The
-conversations in `sample_conversations/` describe the longer-term experience, including
-actions such as cancellations, returns, address changes, and support tickets.
+Build an order-support chatbot incrementally. A customer can ask about orders and invoice
+status, and can request invoice generation. The conversations in `sample_conversations/`
+describe the longer-term experience, including actions such as cancellations, returns,
+address changes, and support tickets.
 
 ## Working approach
 
@@ -25,7 +25,7 @@ React dashboard
       |
       | HTTP requests
       v
-FastAPI read API
+FastAPI API
       |
       v
 Python repository
@@ -33,14 +33,14 @@ Python repository
       v
 Local SQLite database
 
-Read-only chatbot tools
+Customer-scoped chatbot tools
       |
       +-----> Python repository
 
 Conversation loop
       |-----> OpenRouter model
       |
-      +-----> Read-only chatbot tools
+      +-----> Customer-scoped chatbot tools
 ```
 
 The generated SQLite database and installed dependencies are local artifacts. The schema,
@@ -83,7 +83,9 @@ customer, product, or order data do not change what repository reads return. The
 
 - SQLite for the local database because it requires no database server.
 - Python 3.12 managed with `uv`.
-- FastAPI for the read-only HTTP API.
+- FastAPI for the HTTP API and chat boundary.
+- One narrowly scoped SQLite write transaction for idempotent invoice requests; ordinary
+  repository queries still open the database in read-only mode.
 - OpenRouter through the OpenAI-compatible Python SDK for model requests.
 - React, TypeScript, and Vite for the dashboard.
 - `react-markdown` with a restricted element set for assistant formatting.
@@ -260,6 +262,20 @@ statuses, and invalid monetary or quantity values. An invoice also requires a co
 generation ticket for the same order. Actual ticket creation, state-changing application
 services, API/tool exposure, and PDF generation remain future work.
 
+### 15. Invoice chatbot tools
+
+Added `get_invoice`, which returns a single current state spanning invoice availability and
+the latest generation ticket, and `request_invoice`, which creates a queued generation
+ticket. Invoice status is always refreshed from the database instead of being inferred from
+conversation history. Available invoices return their mock document URL.
+
+Request creation uses a customer-scoped `BEGIN IMMEDIATE` transaction. It returns an
+existing invoice or active ticket instead of creating another one, including when two
+requests arrive concurrently. Failed and cancelled tickets remain preserved and a later
+request creates a new ticket. Each new ticket also receives its initial status-history row.
+The deterministic evaluator permits this single supported write tool while continuing to
+reject unrelated actions and cross-customer order access.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -268,7 +284,9 @@ services, API/tool exposure, and PDF generation remain future work.
 - Retrieve customer-scoped invoice snapshots and latest invoice ticket status.
 - Show order status, dates, address, payment method, items, quantities, prices, and totals.
 - Switch between customers and orders in the dashboard.
-- Execute three customer-scoped, read-only order tools without a language model.
+- Execute five customer-scoped support tools without a language model.
+- Fetch fresh invoice availability and ticket status for an order.
+- Idempotently create an invoice-generation request.
 - Produce lean recent-product candidates using an optional rolling date window.
 - Run a bounded model/tool loop while preserving the complete internal message history.
 - Continue follow-up conversations using earlier hidden tool results.
@@ -284,7 +302,7 @@ services, API/tool exposure, and PDF generation remain future work.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 60 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 73 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -339,8 +357,8 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 - Orders have one delivery schedule; split shipments are unsupported.
 - A customer change must begin a fresh internal history so previous customer tool results do
   not remain in model context.
-- Invoice and ticket records are read-only; request creation, lifecycle processing, API/tool
-  exposure, and real document generation are not implemented.
+- Invoice requests can be created, but ticket lifecycle processing, the planned ticket
+  management interface, and real document generation are not implemented.
 - There is no tracking history, payment status, cancellation process, refund process, or
   return process.
 - The dashboard and API currently run as separate development processes.
@@ -353,14 +371,13 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 
 ## Recommended next milestone
 
-Expand the deterministic catalog with natural-language variations and run each important
-scenario repeatedly. Use the failure categories and targeted human review to distinguish
-assistant defects from evaluator defects, then define completion thresholds before adding a
-calibrated LLM judge.
+Add a ticket-management interface that exposes invoice ticket states and later performs one
+atomic “Generate mock invoice” operation: create the invoice snapshot and items, then mark
+the ticket completed and append its status history.
 
 ## Later roadmap
 
 1. Add paraphrases and repeated-run reporting to the deterministic evaluation catalog.
 2. Define completion criteria and calibrate an LLM judge against human-reviewed examples.
-3. Add application services and tools for invoice requests before expanding to split
-   shipments, cancellations, refunds, returns, and address changes.
+3. Add the ticket-management interface and mock invoice completion flow before expanding to
+   split shipments, cancellations, refunds, returns, and address changes.

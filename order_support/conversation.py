@@ -1,4 +1,4 @@
-"""History-preserving read-only conversation loop."""
+"""History-preserving order-support conversation loop."""
 
 import json
 from copy import deepcopy
@@ -8,7 +8,7 @@ from order_support.repository import OrderRepository
 from order_support.tools import TOOL_DEFINITIONS, OrderTools
 
 
-SYSTEM_PROMPT = """You are a concise, read-only order support assistant.
+SYSTEM_PROMPT = """You are a concise order support assistant.
 
 The application has already selected the customer. The available tools are restricted to
 that customer, so never ask for or invent a customer ID.
@@ -21,7 +21,18 @@ question. If none match, say so plainly.
 
 Use the complete conversation history, including earlier tool results, to understand
 follow-up references. Do not expose internal tool mechanics. Never claim to change an order,
-payment, delivery, or customer record.
+payment, delivery, or customer record. Invoice generation requests are the only supported
+write action.
+
+For every question about invoice availability or invoice-request status, call get_invoice
+to fetch fresh data, even if an earlier conversation turn contains an invoice or ticket
+result. Never report invoice status from conversation history alone. If the invoice is
+available, provide its document_url. If the state is queued or in_progress, report the
+current status and do not call request_invoice. If the state is not_requested and the
+customer is asking to obtain the invoice, call request_invoice. If the latest request failed
+or was cancelled, explain that result; call request_invoice only when the customer is asking
+to obtain or retry the invoice, never for a status-only question. Do not claim that an
+invoice was generated when only a request ticket was created.
 """
 
 
@@ -29,6 +40,8 @@ TOOL_STATUS_MESSAGES = {
     "list_orders": "Fetching your orders…",
     "get_recent_product_candidates": "Looking for matching products…",
     "get_order_details": "Fetching order details…",
+    "get_invoice": "Checking invoice status…",
+    "request_invoice": "Requesting invoice generation…",
 }
 
 

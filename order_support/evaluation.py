@@ -1,14 +1,16 @@
-"""Deterministic checks for read-only assistant evaluation runs."""
+"""Deterministic checks for assistant evaluation runs."""
 
 import json
 import re
 from dataclasses import dataclass, field
 
 
-READ_ONLY_TOOL_NAMES = {
+ALLOWED_TOOL_NAMES = {
     "list_orders",
     "get_order_details",
     "get_recent_product_candidates",
+    "get_invoice",
+    "request_invoice",
 }
 ORDER_ID_PATTERN = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
 
@@ -72,12 +74,12 @@ def evaluate_turn(
             )
         )
 
-    unexpected_tools = sorted(set(tool_names) - READ_ONLY_TOOL_NAMES)
+    unexpected_tools = sorted(set(tool_names) - ALLOWED_TOOL_NAMES)
     if unexpected_tools:
         report.failures.append(
             EvaluationFailure(
-                "non_read_only_tool",
-                f"Observed tools outside the read-only allowlist: {unexpected_tools}",
+                "unsupported_tool",
+                f"Observed tools outside the support allowlist: {unexpected_tools}",
             )
         )
 

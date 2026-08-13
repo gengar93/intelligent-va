@@ -1,6 +1,7 @@
-"""Customer-scoped, read-only tools for a future chatbot."""
+"""Customer-scoped tools for order support."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from uuid import uuid4
 
 from order_support.repository import OrderRepository
 
@@ -67,21 +68,79 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_invoice",
+            "description": (
+                "Fetch the selected customer's current invoice state for an order. "
+                "Use this for every invoice availability or status question, even if "
+                "an earlier conversation turn contains invoice or ticket information."
+            ),
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "The order identifier, such as ORD-1042.",
+                    }
+                },
+                "required": ["order_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_invoice",
+            "description": (
+                "Idempotently request invoice generation for one of the selected "
+                "customer's orders. Use only when the customer asks to obtain or retry "
+                "an unavailable invoice; do not use for a status-only question."
+            ),
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "The order identifier, such as ORD-1042.",
+                    }
+                },
+                "required": ["order_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
+def _utc_now():
+    return datetime.now(timezone.utc)
+
+
+def _new_identifier(prefix):
+    return f"{prefix}-{uuid4().hex.upper()}"
+
+
 class OrderTools:
-    """Expose order reads while keeping the selected customer outside tool arguments."""
+    """Expose scoped support operations without model-visible customer arguments."""
 
     def __init__(
         self,
         repository: OrderRepository,
         customer_id: str,
         today_provider=date.today,
+        now_provider=_utc_now,
+        id_provider=_new_identifier,
     ):
         self._repository = repository
         self._customer_id = customer_id
         self._today_provider = today_provider
+        self._now_provider = now_provider
+        self._id_provider = id_provider
 
     def list_orders(self):
         customer_orders = self._repository.get_customer_orders(self._customer_id)
@@ -146,6 +205,19 @@ class OrderTools:
         )
         return {"candidates": candidates}
 
+    def get_invoice(self, order_id):
+        return self._repository.get_invoice_state(self._customer_id, order_id)
+
+    def request_invoice(self, order_id):
+        requested_at = self._now_provider().isoformat()
+        return self._repository.request_invoice(
+            self._customer_id,
+            order_id,
+            ticket_id=self._id_provider("TKT"),
+            ticket_status_history_id=self._id_provider("TSH"),
+            requested_at=requested_at,
+        )
+
     def execute(self, tool_name, arguments):
         if tool_name == "list_orders":
             if arguments:
@@ -161,6 +233,14 @@ class OrderTools:
                     "get_recent_product_candidates requires only lookback_days"
                 )
             return self.get_recent_product_candidates(arguments["lookback_days"])
+        if tool_name == "get_invoice":
+            if set(arguments) != {"order_id"}:
+                raise ValueError("get_invoice requires only order_id")
+            return self.get_invoice(arguments["order_id"])
+        if tool_name == "request_invoice":
+            if set(arguments) != {"order_id"}:
+                raise ValueError("request_invoice requires only order_id")
+            return self.request_invoice(arguments["order_id"])
         raise ValueError(f"Unknown tool: {tool_name}")
 
     @staticmethod

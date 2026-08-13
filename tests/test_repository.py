@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from order_support.repository import OrderRepository
@@ -77,6 +78,105 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(ticket["ticket_id"], "TKT-7002")
         self.assertEqual(ticket["status"], "in_progress")
         self.assertIsNone(another_customers_ticket)
+
+    def test_returns_unified_invoice_states(self):
+        available = self.repository.get_invoice_state("CUS-001", "ORD-1042")
+        in_progress = self.repository.get_invoice_state("CUS-002", "ORD-1087")
+        failed = self.repository.get_invoice_state("CUS-003", "ORD-1064")
+        not_requested = self.repository.get_invoice_state("CUS-001", "ORD-1038")
+        foreign = self.repository.get_invoice_state("CUS-001", "ORD-1087")
+
+        self.assertEqual(available["state"], "available")
+        self.assertEqual(
+            available["invoice"]["document_url"],
+            "/mock-invoices/INV-2026-00481.pdf",
+        )
+        self.assertEqual(in_progress["state"], "in_progress")
+        self.assertEqual(in_progress["ticket"]["ticket_id"], "TKT-7002")
+        self.assertEqual(failed["state"], "failed")
+        self.assertEqual(not_requested["state"], "not_requested")
+        self.assertEqual(
+            foreign,
+            {"order_found": False, "state": "order_not_found"},
+        )
+
+    def request_invoice(self, suffix, customer_id="CUS-001", order_id="ORD-1038"):
+        return self.repository.request_invoice(
+            customer_id,
+            order_id,
+            ticket_id=f"TKT-REQUEST-{suffix}",
+            ticket_status_history_id=f"TSH-REQUEST-{suffix}",
+            requested_at=f"2026-08-13T10:00:0{suffix}+00:00",
+        )
+
+    def test_invoice_request_is_idempotent(self):
+        first = self.request_invoice("1")
+        second = self.request_invoice("2")
+
+        self.assertTrue(first["created"])
+        self.assertFalse(second["created"])
+        self.assertEqual(first["ticket"]["ticket_id"], "TKT-REQUEST-1")
+        self.assertEqual(second["ticket"]["ticket_id"], "TKT-REQUEST-1")
+
+        with sqlite3.connect(self.database_path) as connection:
+            ticket_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM tickets
+                WHERE order_id = 'ORD-1038'
+                  AND ticket_type = 'invoice_generation'
+                """
+            ).fetchone()[0]
+            history_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM ticket_status_history
+                WHERE ticket_id = 'TKT-REQUEST-1'
+                """
+            ).fetchone()[0]
+
+        self.assertEqual(ticket_count, 1)
+        self.assertEqual(history_count, 1)
+
+    def test_invoice_request_is_idempotent_under_concurrency(self):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(self.request_invoice, ("3", "4")))
+
+        self.assertEqual(sum(result["created"] for result in results), 1)
+        self.assertEqual(
+            len({result["ticket"]["ticket_id"] for result in results}),
+            1,
+        )
+
+    def test_invoice_request_returns_existing_invoice_without_writing(self):
+        result = self.request_invoice("5", order_id="ORD-1042")
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["state"], "available")
+        self.assertEqual(result["invoice"]["invoice_number"], "INV-2026-00481")
+
+    def test_invoice_request_retries_after_failed_ticket(self):
+        result = self.request_invoice(
+            "6",
+            customer_id="CUS-003",
+            order_id="ORD-1064",
+        )
+
+        self.assertTrue(result["created"])
+        self.assertEqual(result["state"], "queued")
+        self.assertEqual(result["ticket"]["ticket_id"], "TKT-REQUEST-6")
+
+    def test_invoice_request_does_not_write_for_another_customers_order(self):
+        result = self.request_invoice("7", order_id="ORD-1087")
+
+        self.assertEqual(
+            result,
+            {
+                "order_found": False,
+                "state": "order_not_found",
+                "created": False,
+            },
+        )
 
 
 if __name__ == "__main__":

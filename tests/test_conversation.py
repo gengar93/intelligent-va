@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import date
 from pathlib import Path
 
-from order_support.conversation import ConversationLoop
+from order_support.conversation import SYSTEM_PROMPT, ConversationLoop
 from order_support.repository import OrderRepository
 from scripts.reset_database import build_database
 
@@ -221,6 +221,69 @@ class ConversationLoopTests(unittest.TestCase):
                 "Hello",
                 history=[{"role": "user", "content": "Earlier message"}],
             )
+
+    def test_invoice_status_follow_up_fetches_fresh_data(self):
+        loop, client = self.make_loop(
+            [
+                tool_call_message(
+                    "call-invoice",
+                    "get_invoice",
+                    {"order_id": "ORD-1087"},
+                ),
+                {
+                    "role": "assistant",
+                    "content": "Your invoice request is still in progress.",
+                },
+            ]
+        )
+
+        result = loop.run_turn(
+            "CUS-002",
+            "Is my invoice ready now?",
+            history=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": "Please get my invoice for ORD-1087."},
+                {"role": "assistant", "content": "It was being generated."},
+            ],
+        )
+
+        self.assertEqual(client.requests[0]["messages"][-1]["content"], "Is my invoice ready now?")
+        tool_result = json.loads(result["history"][-2]["content"])
+        self.assertEqual(tool_result["state"], "in_progress")
+        self.assertEqual(
+            result["answer"],
+            "Your invoice request is still in progress.",
+        )
+
+    def test_invoice_request_tool_reports_created_ticket(self):
+        loop, _ = self.make_loop(
+            [
+                tool_call_message(
+                    "call-get-invoice",
+                    "get_invoice",
+                    {"order_id": "ORD-1038"},
+                ),
+                tool_call_message(
+                    "call-request-invoice",
+                    "request_invoice",
+                    {"order_id": "ORD-1038"},
+                ),
+                {
+                    "role": "assistant",
+                    "content": "I created an invoice request. It is queued.",
+                },
+            ]
+        )
+
+        result = loop.run_turn("CUS-001", "Please get my invoice for ORD-1038.")
+
+        request_result = json.loads(result["history"][-2]["content"])
+        self.assertTrue(request_result["created"])
+        self.assertEqual(request_result["state"], "queued")
+
+    def test_system_prompt_requires_fresh_invoice_status(self):
+        self.assertIn("call get_invoice", SYSTEM_PROMPT)
+        self.assertIn("Never report invoice status from conversation history", SYSTEM_PROMPT)
 
 
 if __name__ == "__main__":

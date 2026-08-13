@@ -118,7 +118,7 @@ class EvaluationTests(unittest.TestCase):
 
         self.assertEqual(report.failures[0].code, "foreign_order_tool_result")
 
-    def test_rejects_non_read_only_tools_and_forbidden_claims(self):
+    def test_rejects_unsupported_tools_and_forbidden_claims(self):
         expectation = TurnExpectation(
             prompt="Move my delivery.",
             forbidden_phrases=("delivery has been rescheduled",),
@@ -132,7 +132,7 @@ class EvaluationTests(unittest.TestCase):
 
         self.assertEqual(
             {failure.code for failure in report.failures},
-            {"non_read_only_tool", "forbidden_claim"},
+            {"unsupported_tool", "forbidden_claim"},
         )
 
     def test_accepts_alternative_refusal_wording(self):
@@ -145,6 +145,23 @@ class EvaluationTests(unittest.TestCase):
             expectation,
             "I'm not able to reschedule a delivery.",
             [],
+        )
+
+        self.assertTrue(report.passed)
+
+    def test_allows_the_scoped_invoice_request_tool(self):
+        expectation = TurnExpectation(
+            prompt="Get my invoice.",
+            required_tools=("get_invoice", "request_invoice"),
+        )
+
+        report = self.evaluate(
+            expectation,
+            "Your invoice request is queued.",
+            [
+                assistant_tool_call("get_invoice", {"order_id": "ORD-1038"}),
+                assistant_tool_call("request_invoice", {"order_id": "ORD-1038"}),
+            ],
         )
 
         self.assertTrue(report.passed)

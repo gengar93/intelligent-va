@@ -1,4 +1,4 @@
-"""Read-only queries for customer and order data."""
+"""Customer-scoped order reads and narrowly scoped invoice-request writes."""
 
 import sqlite3
 from pathlib import Path
@@ -16,6 +16,15 @@ class OrderRepository:
             f"file:{self._database_path}?mode=ro",
             uri=True,
         )
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+    def _connect_writable(self):
+        if not self._database_path.is_file():
+            raise FileNotFoundError(f"Database does not exist: {self._database_path}")
+
+        connection = sqlite3.connect(self._database_path, timeout=5)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
@@ -189,6 +198,170 @@ class OrderRepository:
             ).fetchone()
 
         return None if ticket_row is None else dict(ticket_row)
+
+    def get_invoice_state(self, customer_id, order_id):
+        normalized_order_id = order_id.strip()
+        with self._connect() as connection:
+            order_row = connection.execute(
+                """
+                SELECT order_id
+                FROM orders
+                WHERE customer_id = ? AND lower(order_id) = lower(?)
+                """,
+                (customer_id, normalized_order_id),
+            ).fetchone()
+
+            if order_row is None:
+                return {"order_found": False, "state": "order_not_found"}
+
+            return self._get_invoice_state_for_order(
+                connection,
+                order_row["order_id"],
+            )
+
+    def request_invoice(
+        self,
+        customer_id,
+        order_id,
+        *,
+        ticket_id,
+        ticket_status_history_id,
+        requested_at,
+    ):
+        """Create at most one active invoice request for a customer-owned order."""
+        normalized_order_id = order_id.strip()
+        with self._connect_writable() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            order_row = connection.execute(
+                """
+                SELECT order_id
+                FROM orders
+                WHERE customer_id = ? AND lower(order_id) = lower(?)
+                """,
+                (customer_id, normalized_order_id),
+            ).fetchone()
+
+            if order_row is None:
+                return {
+                    "order_found": False,
+                    "state": "order_not_found",
+                    "created": False,
+                }
+
+            canonical_order_id = order_row["order_id"]
+            current_state = self._get_invoice_state_for_order(
+                connection,
+                canonical_order_id,
+            )
+            if current_state["state"] in {"available", "queued", "in_progress"}:
+                current_state["created"] = False
+                return current_state
+
+            connection.execute(
+                """
+                INSERT INTO tickets (
+                    ticket_id,
+                    ticket_type,
+                    order_id,
+                    status,
+                    created_at,
+                    updated_at,
+                    completed_at,
+                    failure_reason
+                ) VALUES (?, 'invoice_generation', ?, 'queued', ?, ?, NULL, NULL)
+                """,
+                (ticket_id, canonical_order_id, requested_at, requested_at),
+            )
+            connection.execute(
+                """
+                INSERT INTO ticket_status_history (
+                    ticket_status_history_id,
+                    ticket_id,
+                    from_status,
+                    to_status,
+                    changed_at,
+                    note
+                ) VALUES (?, ?, NULL, 'queued', ?, 'Customer requested invoice')
+                """,
+                (ticket_status_history_id, ticket_id, requested_at),
+            )
+
+            return {
+                "order_found": True,
+                "order_id": canonical_order_id,
+                "state": "queued",
+                "invoice": None,
+                "ticket": {
+                    "ticket_id": ticket_id,
+                    "status": "queued",
+                    "created_at": requested_at,
+                    "updated_at": requested_at,
+                    "completed_at": None,
+                    "failure_reason": None,
+                },
+                "created": True,
+            }
+
+    @staticmethod
+    def _get_invoice_state_for_order(connection, order_id):
+        invoice_row = connection.execute(
+            """
+            SELECT
+                invoice_id,
+                invoice_number,
+                order_id,
+                issued_at,
+                currency,
+                subtotal_minor,
+                tax_minor,
+                total_minor,
+                document_url
+            FROM invoices
+            WHERE order_id = ?
+            """,
+            (order_id,),
+        ).fetchone()
+        if invoice_row is not None:
+            return {
+                "order_found": True,
+                "order_id": order_id,
+                "state": "available",
+                "invoice": dict(invoice_row),
+                "ticket": None,
+            }
+
+        ticket_row = connection.execute(
+            """
+            SELECT
+                ticket_id,
+                status,
+                created_at,
+                updated_at,
+                completed_at,
+                failure_reason
+            FROM tickets
+            WHERE order_id = ? AND ticket_type = 'invoice_generation'
+            ORDER BY created_at DESC, ticket_id DESC
+            LIMIT 1
+            """,
+            (order_id,),
+        ).fetchone()
+        if ticket_row is None:
+            return {
+                "order_found": True,
+                "order_id": order_id,
+                "state": "not_requested",
+                "invoice": None,
+                "ticket": None,
+            }
+
+        return {
+            "order_found": True,
+            "order_id": order_id,
+            "state": ticket_row["status"],
+            "invoice": None,
+            "ticket": dict(ticket_row),
+        }
 
     def get_recent_product_candidates(self, customer_id, cutoff_date):
         cutoff_value = cutoff_date.isoformat() if cutoff_date is not None else None

@@ -1,7 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from order_support.repository import OrderRepository
@@ -19,6 +19,8 @@ class OrderToolsTests(unittest.TestCase):
             self.repository,
             "CUS-001",
             today_provider=lambda: date(2026, 8, 8),
+            now_provider=lambda: datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc),
+            id_provider=lambda prefix: f"{prefix}-TOOL-1",
         )
 
     def tearDown(self):
@@ -210,6 +212,34 @@ class OrderToolsTests(unittest.TestCase):
             self.tools.execute("list_orders", {"customer_id": "CUS-002"})
         with self.assertRaises(ValueError):
             self.tools.execute("unknown_tool", {})
+
+    def test_get_invoice_returns_available_and_current_ticket_states(self):
+        available = self.tools.get_invoice("ORD-1042")
+        not_requested = self.tools.get_invoice("ORD-1038")
+
+        self.assertEqual(available["state"], "available")
+        self.assertEqual(
+            available["invoice"]["document_url"],
+            "/mock-invoices/INV-2026-00481.pdf",
+        )
+        self.assertEqual(not_requested["state"], "not_requested")
+
+    def test_request_invoice_creates_one_ticket_and_returns_it_on_repeat(self):
+        first = self.tools.request_invoice("ORD-1038")
+        second = self.tools.request_invoice("ORD-1038")
+
+        self.assertTrue(first["created"])
+        self.assertFalse(second["created"])
+        self.assertEqual(first["ticket"], second["ticket"])
+        self.assertEqual(first["ticket"]["ticket_id"], "TKT-TOOL-1")
+
+    def test_invoice_tools_are_customer_scoped(self):
+        invoice = self.tools.get_invoice("ORD-1087")
+        request = self.tools.request_invoice("ORD-1087")
+
+        self.assertFalse(invoice["order_found"])
+        self.assertFalse(request["order_found"])
+        self.assertFalse(request["created"])
 
 
 if __name__ == "__main__":

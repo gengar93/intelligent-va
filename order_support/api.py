@@ -1,4 +1,4 @@
-"""FastAPI application exposing read-only order data and chat."""
+"""FastAPI application exposing order data and customer-support chat."""
 
 import json
 from pathlib import Path
@@ -71,7 +71,7 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
     application = FastAPI(
         title="Order Support API",
         version="0.1.0",
-        description="Read-only customer and order data for the support demo.",
+        description="Customer and order data for the support demo.",
     )
 
     @application.get("/api/customers", response_model=list[CustomerRead])
