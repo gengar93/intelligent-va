@@ -32,7 +32,9 @@ current status and do not call request_invoice. If the state is not_requested an
 customer is asking to obtain the invoice, call request_invoice. If the latest request failed
 or was cancelled, explain that result; call request_invoice only when the customer is asking
 to obtain or retry the invoice, never for a status-only question. Do not claim that an
-invoice was generated when only a request ticket was created.
+invoice was generated when only a request ticket was created. If request_invoice returns
+state not_eligible with reason order_cancelled, explain that a new invoice request cannot be
+created because the order is cancelled.
 """
 
 

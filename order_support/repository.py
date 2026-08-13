@@ -204,7 +204,7 @@ class OrderRepository:
         with self._connect() as connection:
             order_row = connection.execute(
                 """
-                SELECT order_id
+                SELECT order_id, status
                 FROM orders
                 WHERE customer_id = ? AND lower(order_id) = lower(?)
                 """,
@@ -234,7 +234,7 @@ class OrderRepository:
             connection.execute("BEGIN IMMEDIATE")
             order_row = connection.execute(
                 """
-                SELECT order_id
+                SELECT order_id, status
                 FROM orders
                 WHERE customer_id = ? AND lower(order_id) = lower(?)
                 """,
@@ -256,6 +256,17 @@ class OrderRepository:
             if current_state["state"] in {"available", "queued", "in_progress"}:
                 current_state["created"] = False
                 return current_state
+
+            if order_row["status"] == "cancelled":
+                return {
+                    "order_found": True,
+                    "order_id": canonical_order_id,
+                    "state": "not_eligible",
+                    "reason": "order_cancelled",
+                    "invoice": None,
+                    "ticket": current_state["ticket"],
+                    "created": False,
+                }
 
             connection.execute(
                 """

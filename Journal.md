@@ -276,6 +276,17 @@ request creates a new ticket. Each new ticket also receives its initial status-h
 The deterministic evaluator permits this single supported write tool while continuing to
 reject unrelated actions and cross-customer order access.
 
+### 16. Cancelled-order invoice eligibility
+
+New invoice requests are rejected for cancelled orders when no active request exists. The
+tool returns `not_eligible` with reason `order_cancelled`, allowing the assistant to explain
+the outcome without inventing payment or tax rules. The eligibility decision happens inside
+the same write transaction as request creation.
+
+An invoice that was generated before cancellation remains available, and a queued or
+in-progress request continues to report its normal status. Failed ticket history is
+preserved, but a cancelled order cannot create a retry ticket.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -302,7 +313,7 @@ reject unrelated actions and cross-customer order access.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 73 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 78 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project

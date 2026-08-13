@@ -110,8 +110,8 @@ class RepositoryTests(unittest.TestCase):
         )
 
     def test_invoice_request_is_idempotent(self):
-        first = self.request_invoice("1")
-        second = self.request_invoice("2")
+        first = self.request_invoice("1", order_id="ORD-1095", customer_id="CUS-002")
+        second = self.request_invoice("2", order_id="ORD-1095", customer_id="CUS-002")
 
         self.assertTrue(first["created"])
         self.assertFalse(second["created"])
@@ -123,7 +123,7 @@ class RepositoryTests(unittest.TestCase):
                 """
                 SELECT COUNT(*)
                 FROM tickets
-                WHERE order_id = 'ORD-1038'
+                WHERE order_id = 'ORD-1095'
                   AND ticket_type = 'invoice_generation'
                 """
             ).fetchone()[0]
@@ -140,7 +140,16 @@ class RepositoryTests(unittest.TestCase):
 
     def test_invoice_request_is_idempotent_under_concurrency(self):
         with ThreadPoolExecutor(max_workers=2) as executor:
-            results = list(executor.map(self.request_invoice, ("3", "4")))
+            futures = [
+                executor.submit(
+                    self.request_invoice,
+                    suffix,
+                    "CUS-002",
+                    "ORD-1095",
+                )
+                for suffix in ("3", "4")
+            ]
+            results = [future.result() for future in futures]
 
         self.assertEqual(sum(result["created"] for result in results), 1)
         self.assertEqual(
@@ -177,6 +186,134 @@ class RepositoryTests(unittest.TestCase):
                 "created": False,
             },
         )
+
+    def test_invoice_request_rejects_cancelled_order_without_active_ticket(self):
+        result = self.request_invoice("8")
+
+        self.assertEqual(
+            result,
+            {
+                "order_found": True,
+                "order_id": "ORD-1038",
+                "state": "not_eligible",
+                "reason": "order_cancelled",
+                "invoice": None,
+                "ticket": None,
+                "created": False,
+            },
+        )
+
+        with sqlite3.connect(self.database_path) as connection:
+            ticket_count = connection.execute(
+                "SELECT COUNT(*) FROM tickets WHERE order_id = 'ORD-1038'"
+            ).fetchone()[0]
+
+        self.assertEqual(ticket_count, 0)
+
+    def test_cancelled_order_returns_existing_active_ticket(self):
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                """
+                INSERT INTO tickets (
+                    ticket_id, ticket_type, order_id, status,
+                    created_at, updated_at, completed_at, failure_reason
+                ) VALUES (?, 'invoice_generation', ?, 'in_progress', ?, ?, NULL, NULL)
+                """,
+                (
+                    "TKT-CANCELLED-ACTIVE",
+                    "ORD-1038",
+                    "2026-08-12T09:00:00+00:00",
+                    "2026-08-12T09:01:00+00:00",
+                ),
+            )
+
+        result = self.request_invoice("9")
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["state"], "in_progress")
+        self.assertEqual(result["ticket"]["ticket_id"], "TKT-CANCELLED-ACTIVE")
+
+    def test_cancelled_order_with_failed_ticket_does_not_create_retry(self):
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                """
+                INSERT INTO tickets (
+                    ticket_id, ticket_type, order_id, status,
+                    created_at, updated_at, completed_at, failure_reason
+                ) VALUES (?, 'invoice_generation', ?, 'failed', ?, ?, NULL, ?)
+                """,
+                (
+                    "TKT-CANCELLED-FAILED",
+                    "ORD-1038",
+                    "2026-08-12T09:00:00+00:00",
+                    "2026-08-12T09:01:00+00:00",
+                    "Earlier generation failed",
+                ),
+            )
+
+        result = self.request_invoice("A")
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["state"], "not_eligible")
+        self.assertEqual(result["reason"], "order_cancelled")
+        self.assertEqual(result["ticket"]["ticket_id"], "TKT-CANCELLED-FAILED")
+
+        with sqlite3.connect(self.database_path) as connection:
+            ticket_count = connection.execute(
+                "SELECT COUNT(*) FROM tickets WHERE order_id = 'ORD-1038'"
+            ).fetchone()[0]
+
+        self.assertEqual(ticket_count, 1)
+
+    def test_cancelled_order_returns_existing_invoice(self):
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                """
+                INSERT INTO tickets (
+                    ticket_id, ticket_type, order_id, status,
+                    created_at, updated_at, completed_at, failure_reason
+                ) VALUES (?, 'invoice_generation', ?, 'completed', ?, ?, ?, NULL)
+                """,
+                (
+                    "TKT-CANCELLED-COMPLETE",
+                    "ORD-1038",
+                    "2026-08-01T09:00:00+00:00",
+                    "2026-08-01T09:02:00+00:00",
+                    "2026-08-01T09:02:00+00:00",
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO invoices (
+                    invoice_id, invoice_number, order_id, generation_ticket_id,
+                    issued_at, billing_name, billing_address, currency,
+                    subtotal_minor, tax_minor, total_minor, document_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "INV-CANCELLED",
+                    "INV-2026-CANCELLED",
+                    "ORD-1038",
+                    "TKT-CANCELLED-COMPLETE",
+                    "2026-08-01T09:02:00+00:00",
+                    "Aarav Sharma",
+                    "22 Lakeview Apartments, Koramangala, Bengaluru 560034",
+                    "INR",
+                    429900,
+                    0,
+                    429900,
+                    "/mock-invoices/INV-2026-CANCELLED.pdf",
+                ),
+            )
+
+        result = self.request_invoice("0")
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["state"], "available")
+        self.assertEqual(result["invoice"]["invoice_number"], "INV-2026-CANCELLED")
 
 
 if __name__ == "__main__":

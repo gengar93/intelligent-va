@@ -225,13 +225,26 @@ class OrderToolsTests(unittest.TestCase):
         self.assertEqual(not_requested["state"], "not_requested")
 
     def test_request_invoice_creates_one_ticket_and_returns_it_on_repeat(self):
-        first = self.tools.request_invoice("ORD-1038")
-        second = self.tools.request_invoice("ORD-1038")
+        tools = OrderTools(
+            self.repository,
+            "CUS-002",
+            now_provider=lambda: datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc),
+            id_provider=lambda prefix: f"{prefix}-TOOL-1",
+        )
+        first = tools.request_invoice("ORD-1095")
+        second = tools.request_invoice("ORD-1095")
 
         self.assertTrue(first["created"])
         self.assertFalse(second["created"])
         self.assertEqual(first["ticket"], second["ticket"])
         self.assertEqual(first["ticket"]["ticket_id"], "TKT-TOOL-1")
+
+    def test_request_invoice_rejects_cancelled_order_without_active_ticket(self):
+        result = self.tools.request_invoice("ORD-1038")
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["state"], "not_eligible")
+        self.assertEqual(result["reason"], "order_cancelled")
 
     def test_invoice_tools_are_customer_scoped(self):
         invoice = self.tools.get_invoice("ORD-1087")

@@ -261,12 +261,12 @@ class ConversationLoopTests(unittest.TestCase):
                 tool_call_message(
                     "call-get-invoice",
                     "get_invoice",
-                    {"order_id": "ORD-1038"},
+                    {"order_id": "ORD-1095"},
                 ),
                 tool_call_message(
                     "call-request-invoice",
                     "request_invoice",
-                    {"order_id": "ORD-1038"},
+                    {"order_id": "ORD-1095"},
                 ),
                 {
                     "role": "assistant",
@@ -275,7 +275,7 @@ class ConversationLoopTests(unittest.TestCase):
             ]
         )
 
-        result = loop.run_turn("CUS-001", "Please get my invoice for ORD-1038.")
+        result = loop.run_turn("CUS-002", "Please get my invoice for ORD-1095.")
 
         request_result = json.loads(result["history"][-2]["content"])
         self.assertTrue(request_result["created"])
@@ -284,6 +284,7 @@ class ConversationLoopTests(unittest.TestCase):
     def test_system_prompt_requires_fresh_invoice_status(self):
         self.assertIn("call get_invoice", SYSTEM_PROMPT)
         self.assertIn("Never report invoice status from conversation history", SYSTEM_PROMPT)
+        self.assertIn("reason order_cancelled", SYSTEM_PROMPT)
 
 
 if __name__ == "__main__":

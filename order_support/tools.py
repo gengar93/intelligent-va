@@ -98,7 +98,9 @@ TOOL_DEFINITIONS = [
             "description": (
                 "Idempotently request invoice generation for one of the selected "
                 "customer's orders. Use only when the customer asks to obtain or retry "
-                "an unavailable invoice; do not use for a status-only question."
+                "an unavailable invoice; do not use for a status-only question. A new "
+                "request is not allowed for a cancelled order, though an existing invoice "
+                "or active request remains available."
             ),
             "strict": True,
             "parameters": {
