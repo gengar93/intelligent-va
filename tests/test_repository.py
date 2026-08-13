@@ -37,6 +37,8 @@ class RepositoryTests(unittest.TestCase):
 
         latest_order = result["orders"][0]
         self.assertEqual(latest_order["total_minor"], 339800)
+        self.assertEqual(latest_order["invoice_status"], "in_progress")
+        self.assertEqual(result["orders"][1]["invoice_status"], "not_requested")
         self.assertEqual(
             [item["product_name"] for item in latest_order["items"]],
             ["UrbanTrail Backpack", "SteelSip Bottle"],
@@ -79,6 +81,16 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(ticket["status"], "in_progress")
         self.assertIsNone(another_customers_ticket)
 
+    def test_lists_only_customer_scoped_open_invoice_tickets(self):
+        tickets = self.repository.get_open_invoice_tickets("CUS-002")
+
+        self.assertEqual([ticket["ticket_id"] for ticket in tickets], ["TKT-7002"])
+        self.assertEqual(tickets[0]["order_id"], "ORD-1087")
+        self.assertEqual(tickets[0]["item_count"], 2)
+        self.assertEqual(tickets[0]["total_minor"], 339800)
+        self.assertEqual(self.repository.get_open_invoice_tickets("CUS-001"), [])
+        self.assertIsNone(self.repository.get_open_invoice_tickets("CUS-999"))
+
     def test_returns_unified_invoice_states(self):
         available = self.repository.get_invoice_state("CUS-001", "ORD-1042")
         in_progress = self.repository.get_invoice_state("CUS-002", "ORD-1087")
@@ -107,6 +119,91 @@ class RepositoryTests(unittest.TestCase):
             ticket_id=f"TKT-REQUEST-{suffix}",
             ticket_status_history_id=f"TSH-REQUEST-{suffix}",
             requested_at=f"2026-08-13T10:00:0{suffix}+00:00",
+        )
+
+    def generate_invoice(self, customer_id, ticket_id, suffix="TEST"):
+        item_ids = iter([f"INI-{suffix}-1", f"INI-{suffix}-2"])
+        return self.repository.generate_invoice_for_ticket(
+            customer_id,
+            ticket_id,
+            invoice_id=f"INV-{suffix}",
+            invoice_number=f"INV-2026-{suffix}",
+            in_progress_history_id=f"TSH-{suffix}-PROGRESS",
+            completed_history_id=f"TSH-{suffix}-COMPLETE",
+            generated_at="2026-08-13T15:30:00+05:30",
+            invoice_item_id_provider=lambda: next(item_ids),
+        )
+
+    def test_generates_invoice_snapshot_and_completes_in_progress_ticket(self):
+        result = self.generate_invoice("CUS-002", "TKT-7002")
+
+        self.assertEqual(result["state"], "available")
+        self.assertTrue(result["created"])
+        self.assertEqual(result["invoice"]["order_id"], "ORD-1087")
+        self.assertEqual(
+            result["invoice"]["document_url"],
+            "/mock-invoices/INV-2026-TEST.pdf",
+        )
+        self.assertEqual(self.repository.get_open_invoice_tickets("CUS-002"), [])
+
+        invoice = self.repository.get_order_invoice("CUS-002", "ORD-1087")
+        self.assertEqual(invoice["billing_name"], "Meera Iyer")
+        self.assertEqual(invoice["billing_address"], "8 Palm Grove, Adyar, Chennai 600020")
+        self.assertEqual(invoice["subtotal_minor"], 339800)
+        self.assertEqual(invoice["tax_minor"], 0)
+        self.assertEqual(invoice["total_minor"], 339800)
+        self.assertEqual(len(invoice["items"]), 2)
+
+        with sqlite3.connect(self.database_path) as connection:
+            ticket = connection.execute(
+                "SELECT status, completed_at FROM tickets WHERE ticket_id = 'TKT-7002'"
+            ).fetchone()
+            latest_history = connection.execute(
+                """
+                SELECT from_status, to_status, note
+                FROM ticket_status_history
+                WHERE ticket_id = 'TKT-7002'
+                ORDER BY changed_at DESC, ticket_status_history_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+
+        self.assertEqual(ticket, ("completed", "2026-08-13T15:30:00+05:30"))
+        self.assertEqual(latest_history[0:2], ("in_progress", "completed"))
+        self.assertIn("INV-2026-TEST", latest_history[2])
+
+    def test_generating_queued_ticket_records_both_transitions(self):
+        request = self.request_invoice(
+            "Q",
+            customer_id="CUS-002",
+            order_id="ORD-1095",
+        )
+
+        result = self.generate_invoice("CUS-002", request["ticket"]["ticket_id"], "QUEUED")
+
+        self.assertTrue(result["created"])
+        with sqlite3.connect(self.database_path) as connection:
+            transitions = connection.execute(
+                """
+                SELECT from_status, to_status
+                FROM ticket_status_history
+                WHERE ticket_id = 'TKT-REQUEST-Q'
+                ORDER BY rowid
+                """
+            ).fetchall()
+        self.assertEqual(
+            transitions,
+            [(None, "queued"), ("queued", "in_progress"), ("in_progress", "completed")],
+        )
+
+    def test_invoice_generation_is_customer_scoped_and_requires_open_ticket(self):
+        foreign = self.generate_invoice("CUS-001", "TKT-7002", "FOREIGN")
+        closed = self.generate_invoice("CUS-003", "TKT-7003", "CLOSED")
+
+        self.assertEqual(foreign, {"state": "ticket_not_found"})
+        self.assertEqual(
+            closed,
+            {"state": "ticket_not_open", "ticket_status": "failed"},
         )
 
     def test_invoice_request_is_idempotent(self):

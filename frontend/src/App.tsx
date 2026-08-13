@@ -2,8 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 
-import { fetchCustomerOrders, fetchCustomers, streamChatMessage } from "./api";
-import type { ChatMessage, Customer, CustomerOrders, Order, OrderStatus } from "./types";
+import {
+  fetchCustomerOrders,
+  fetchCustomers,
+  fetchOpenTickets,
+  generateInvoice,
+  streamChatMessage,
+} from "./api";
+import type {
+  ChatMessage,
+  Customer,
+  CustomerOrders,
+  InvoiceStatus,
+  InvoiceTicket,
+  Order,
+  OrderStatus,
+  TicketStatus,
+} from "./types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   processing: "Processing",
@@ -11,6 +26,23 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
+
+const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  not_requested: "Not requested",
+  queued: "Queued",
+  in_progress: "In progress",
+  available: "Available",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  queued: "Queued",
+  in_progress: "In progress",
+};
+
+type ActiveTab = "overview" | "tickets" | "assistant";
+const WORKSPACE_TABS: ActiveTab[] = ["overview", "tickets", "assistant"];
 
 const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br"];
 
@@ -39,6 +71,14 @@ function itemCount(order: Order): number {
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   return <span className={`status status--${status}`}>{STATUS_LABELS[status]}</span>;
+}
+
+function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+  return (
+    <span className={`status invoice-status invoice-status--${status}`}>
+      {INVOICE_STATUS_LABELS[status]}
+    </span>
+  );
 }
 
 function LoadingState() {
@@ -83,7 +123,9 @@ function OrderList({
             <span className="order-row__items">
               {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
             </span>
-            <span />
+            <span className="order-row__invoice">
+              Invoice: {INVOICE_STATUS_LABELS[order.invoice_status]}
+            </span>
             <span className="order-row__total">
               {formatMoney(order.total_minor, order.currency)}
             </span>
@@ -120,6 +162,10 @@ function OrderDetails({ order }: { order: Order }) {
         <div>
           <dt>Payment</dt>
           <dd>{order.payment_method_display}</dd>
+        </div>
+        <div>
+          <dt>Invoice</dt>
+          <dd><InvoiceStatusBadge status={order.invoice_status} /></dd>
         </div>
         <div className="fact-grid__wide">
           <dt>Delivery address</dt>
@@ -165,6 +211,75 @@ function OrderDetails({ order }: { order: Order }) {
           </table>
         </div>
       </div>
+    </section>
+  );
+}
+
+function TicketsPanel({
+  tickets,
+  generatingTicketId,
+  notice,
+  error,
+  onGenerate,
+}: {
+  tickets: InvoiceTicket[];
+  generatingTicketId: string | null;
+  notice: string | null;
+  error: string | null;
+  onGenerate: (ticket: InvoiceTicket) => void;
+}) {
+  return (
+    <section className="tickets-view" aria-labelledby="tickets-heading">
+      <div className="tickets-toolbar">
+        <div>
+          <span className="label">INVOICE OPERATIONS</span>
+          <h1 id="tickets-heading">Open tickets</h1>
+        </div>
+        <span className="count-label">{tickets.length}</span>
+      </div>
+
+      {notice ? <p className="ticket-notice" role="status">{notice}</p> : null}
+      {error ? <p className="ticket-error" role="alert">{error}</p> : null}
+
+      {tickets.length === 0 ? (
+        <div className="empty-state ticket-empty">
+          <strong>No open invoice tickets</strong>
+          <span>New invoice requests from the assistant will appear here.</span>
+        </div>
+      ) : (
+        <div className="ticket-list">
+          {tickets.map((ticket) => {
+            const isGenerating = generatingTicketId === ticket.ticket_id;
+            return (
+              <article className="ticket-card" key={ticket.ticket_id}>
+                <div className="ticket-card__identity">
+                  <span className="label">{ticket.ticket_id}</span>
+                  <h2>Invoice for {ticket.order_id}</h2>
+                  <span className={`status ticket-status--${ticket.status}`}>
+                    {TICKET_STATUS_LABELS[ticket.status]}
+                  </span>
+                </div>
+                <dl className="ticket-facts">
+                  <div><dt>Requested</dt><dd>{formatDate(ticket.created_at, true)}</dd></div>
+                  <div><dt>Items</dt><dd>{ticket.item_count}</dd></div>
+                  <div>
+                    <dt>Order total</dt>
+                    <dd>{formatMoney(ticket.total_minor, ticket.currency)}</dd>
+                  </div>
+                </dl>
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={generatingTicketId !== null}
+                  onClick={() => onGenerate(ticket)}
+                >
+                  {isGenerating ? "Generating…" : "Generate Invoice"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -320,6 +435,7 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerOrders, setCustomerOrders] = useState<CustomerOrders | null>(null);
+  const [openTickets, setOpenTickets] = useState<InvoiceTicket[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -331,7 +447,10 @@ export default function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatStatus, setChatStatus] = useState<string | null>(null);
   const [chatActivities, setChatActivities] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<"overview" | "assistant">("overview");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
+  const [ticketNotice, setTicketNotice] = useState<string | null>(null);
+  const [ticketError, setTicketError] = useState<string | null>(null);
   const chatRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -358,10 +477,14 @@ export default function App() {
   useEffect(() => {
     if (!selectedCustomerId) return;
     const controller = new AbortController();
-    fetchCustomerOrders(selectedCustomerId, controller.signal)
-      .then((result) => {
-        setCustomerOrders(result);
-        setSelectedOrderId(result.orders[0]?.order_id ?? null);
+    Promise.all([
+      fetchCustomerOrders(selectedCustomerId, controller.signal),
+      fetchOpenTickets(selectedCustomerId, controller.signal),
+    ])
+      .then(([ordersResult, ticketsResult]) => {
+        setCustomerOrders(ordersResult);
+        setOpenTickets(ticketsResult);
+        setSelectedOrderId(ordersResult.orders[0]?.order_id ?? null);
       })
       .catch((requestError: unknown) => {
         if (requestError instanceof Error && requestError.name !== "AbortError") {
@@ -401,16 +524,52 @@ export default function App() {
     setIsLoadingOrders(true);
     setError(null);
     setCustomerOrders(null);
+    setOpenTickets([]);
     setSelectedOrderId(null);
+    setGeneratingTicketId(null);
+    setTicketNotice(null);
+    setTicketError(null);
     resetConversation();
   }
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const nextTab = activeTab === "overview" ? "assistant" : "overview";
+    const currentIndex = WORKSPACE_TABS.indexOf(activeTab);
+    const offset = event.key === "ArrowRight" ? 1 : -1;
+    const nextTab = WORKSPACE_TABS[
+      (currentIndex + offset + WORKSPACE_TABS.length) % WORKSPACE_TABS.length
+    ];
     setActiveTab(nextTab);
     document.getElementById(`${nextTab}-tab`)?.focus();
+  }
+
+  async function handleGenerateInvoice(ticket: InvoiceTicket) {
+    if (!selectedCustomerId || generatingTicketId) return;
+    setGeneratingTicketId(ticket.ticket_id);
+    setTicketNotice(null);
+    setTicketError(null);
+
+    try {
+      const result = await generateInvoice(selectedCustomerId, ticket.ticket_id);
+      setTicketNotice(
+        `${result.invoice.invoice_number} generated for ${result.invoice.order_id}.`,
+      );
+      try {
+        const [ordersResult, ticketsResult] = await Promise.all([
+          fetchCustomerOrders(selectedCustomerId),
+          fetchOpenTickets(selectedCustomerId),
+        ]);
+        setCustomerOrders(ordersResult);
+        setOpenTickets(ticketsResult);
+      } catch {
+        setTicketError("The invoice was generated, but the workspace could not be refreshed.");
+      }
+    } catch {
+      setTicketError("The invoice could not be generated. Please try again.");
+    } finally {
+      setGeneratingTicketId(null);
+    }
   }
 
   async function handleChatSubmit(event: FormEvent<HTMLFormElement>) {
@@ -475,6 +634,18 @@ export default function App() {
           item.id === assistantMessageId ? { ...item, content: response.answer } : item,
         );
       });
+      try {
+        const [ordersResult, ticketsResult] = await Promise.all([
+          fetchCustomerOrders(selectedCustomerId, controller.signal),
+          fetchOpenTickets(selectedCustomerId, controller.signal),
+        ]);
+        setCustomerOrders(ordersResult);
+        setOpenTickets(ticketsResult);
+      } catch (refreshError) {
+        if (refreshError instanceof Error && refreshError.name !== "AbortError") {
+          setError("The assistant responded, but the customer record could not be refreshed.");
+        }
+      }
     } catch (requestError) {
       if (requestError instanceof Error && requestError.name !== "AbortError") {
         setChatMessages((current) =>
@@ -509,7 +680,9 @@ export default function App() {
             aria-label="Select customer"
             value={selectedCustomerId}
             onChange={(event) => handleCustomerChange(event.target.value)}
-            disabled={isLoadingCustomers || customers.length === 0}
+            disabled={
+              isLoadingCustomers || customers.length === 0 || generatingTicketId !== null
+            }
           >
             {customers.map((customer) => (
               <option key={customer.customer_id} value={customer.customer_id}>
@@ -533,6 +706,17 @@ export default function App() {
             onClick={() => setActiveTab("overview")}
             onKeyDown={handleTabKeyDown}
           >Overview</button>
+          <button
+            id="tickets-tab"
+            className={`tab ${activeTab === "tickets" ? "is-active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "tickets"}
+            aria-controls="tickets-panel"
+            tabIndex={activeTab === "tickets" ? 0 : -1}
+            onClick={() => setActiveTab("tickets")}
+            onKeyDown={handleTabKeyDown}
+          >Tickets{openTickets.length > 0 ? ` (${openTickets.length})` : ""}</button>
           <button
             id="assistant-tab"
             className={`tab ${activeTab === "assistant" ? "is-active" : ""}`}
@@ -585,6 +769,16 @@ export default function App() {
               ) : (
                 <div className="empty-state"><strong>No orders yet</strong></div>
               )}
+            </section>
+          ) : activeTab === "tickets" ? (
+            <section id="tickets-panel" role="tabpanel" aria-labelledby="tickets-tab">
+              <TicketsPanel
+                tickets={openTickets}
+                generatingTicketId={generatingTicketId}
+                notice={ticketNotice}
+                error={ticketError}
+                onGenerate={handleGenerateInvoice}
+              />
             </section>
           ) : (
             <section id="assistant-panel" role="tabpanel" aria-labelledby="assistant-tab">

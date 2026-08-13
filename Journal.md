@@ -287,6 +287,28 @@ An invoice that was generated before cancellation remains available, and a queue
 in-progress request continues to report its normal status. Failed ticket history is
 preserved, but a cancelled order cannot create a retry ticket.
 
+### 17. Ticket management and mock invoice completion
+
+Added a customer-scoped Tickets tab that lists queued and in-progress invoice-generation
+tickets. An operator can complete one with `Generate Invoice`; the UI shows success, removes
+the ticket from the open queue, and refreshes the Orders data in place. The Orders list and
+selected-order details now show the current invoice status, including `Available` immediately
+after generation without a browser-page reload. Successful assistant turns also refresh the
+workspace, so a newly requested invoice appears in Tickets without reloading.
+
+The new completion endpoint runs under `BEGIN IMMEDIATE`. It snapshots the customer name,
+delivery address, currency, order items, and totals into the invoice tables, uses zero added
+tax to match the existing mock invoice convention, records any queued-to-in-progress
+transition, completes the ticket, and appends its completion history. All writes commit or
+roll back together. Ticket lookup and completion remain customer-scoped, and closed tickets
+cannot be processed again. Generated documents remain symbolic mock URLs; no PDF bytes are
+created yet.
+
+Verification covered repository and API behavior, customer isolation, both open ticket
+states, invoice snapshots, history transitions, and automatic endpoint refresh. A live UI
+check confirmed the ticket count changed from one to zero and the order status changed to
+`Available` without a page reload; the demo database was reset afterward.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -298,12 +320,14 @@ preserved, but a cancelled order cannot create a retry ticket.
 - Execute five customer-scoped support tools without a language model.
 - Fetch fresh invoice availability and ticket status for an order.
 - Idempotently create an invoice-generation request.
+- List customer-scoped open invoice tickets and atomically generate a mock invoice.
 - Produce lean recent-product candidates using an optional rolling date window.
 - Run a bounded model/tool loop while preserving the complete internal message history.
 - Continue follow-up conversations using earlier hidden tool results.
 - Chat with the assistant from the selected customer's dashboard.
 - Start a fresh conversation explicitly or by changing customers.
-- Switch between order and assistant tabs without losing the current chat.
+- Switch between order, ticket, and assistant tabs without losing the current chat.
+- See invoice status on each order and refresh it immediately after ticket completion.
 - See live, tool-backed activity while the assistant works.
 - Read model-generated answers as they stream into the conversation.
 - Run deterministic, customer-isolated evaluations against the configured model.
@@ -313,7 +337,7 @@ preserved, but a cancelled order cannot create a retry ticket.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 78 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 85 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
@@ -368,8 +392,10 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 - Orders have one delivery schedule; split shipments are unsupported.
 - A customer change must begin a fresh internal history so previous customer tool results do
   not remain in model context.
-- Invoice requests can be created, but ticket lifecycle processing, the planned ticket
-  management interface, and real document generation are not implemented.
+- Invoice generation creates a database snapshot and mock URL, but does not create real PDF
+  content or perform billing/tax integration.
+- The Tickets tab shows only open work; completed, failed, and cancelled ticket history does
+  not yet have an operator-facing audit view.
 - There is no tracking history, payment status, cancellation process, refund process, or
   return process.
 - The dashboard and API currently run as separate development processes.
@@ -382,13 +408,13 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 
 ## Recommended next milestone
 
-Add a ticket-management interface that exposes invoice ticket states and later performs one
-atomic “Generate mock invoice” operation: create the invoice snapshot and items, then mark
-the ticket completed and append its status history.
+Add an operator-facing ticket history view with completed, failed, and cancelled filters,
+then decide whether the next invoice milestone should generate downloadable PDF content or
+integrate with an external billing system.
 
 ## Later roadmap
 
 1. Add paraphrases and repeated-run reporting to the deterministic evaluation catalog.
 2. Define completion criteria and calibrate an LLM judge against human-reviewed examples.
-3. Add the ticket-management interface and mock invoice completion flow before expanding to
-   split shipments, cancellations, refunds, returns, and address changes.
+3. Expand the support workflow to split shipments, cancellations, refunds, returns, and
+   address changes after choosing the next invoice-document milestone.

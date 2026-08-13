@@ -66,7 +66,23 @@ class OrderRepository:
                     o.currency,
                     o.delivery_address,
                     o.payment_method_display,
-                    COALESCE(SUM(oi.quantity * oi.unit_price_minor), 0) AS total_minor
+                    COALESCE(SUM(oi.quantity * oi.unit_price_minor), 0) AS total_minor,
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1 FROM invoices AS i WHERE i.order_id = o.order_id
+                        ) THEN 'available'
+                        ELSE COALESCE(
+                            (
+                                SELECT t.status
+                                FROM tickets AS t
+                                WHERE t.order_id = o.order_id
+                                  AND t.ticket_type = 'invoice_generation'
+                                ORDER BY t.created_at DESC, t.ticket_id DESC
+                                LIMIT 1
+                            ),
+                            'not_requested'
+                        )
+                    END AS invoice_status
                 FROM orders AS o
                 LEFT JOIN order_items AS oi ON oi.order_id = o.order_id
                 WHERE o.customer_id = ?
@@ -110,6 +126,218 @@ class OrderRepository:
             orders.append(order)
 
         return {"customer": dict(customer_row), "orders": orders}
+
+    def get_open_invoice_tickets(self, customer_id):
+        with self._connect() as connection:
+            customer_exists = connection.execute(
+                "SELECT 1 FROM customers WHERE customer_id = ?",
+                (customer_id,),
+            ).fetchone()
+            if customer_exists is None:
+                return None
+
+            rows = connection.execute(
+                """
+                SELECT
+                    t.ticket_id,
+                    t.order_id,
+                    t.status,
+                    t.created_at,
+                    t.updated_at,
+                    o.status AS order_status,
+                    o.currency,
+                    COALESCE(SUM(oi.quantity), 0) AS item_count,
+                    COALESCE(SUM(oi.quantity * oi.unit_price_minor), 0) AS total_minor
+                FROM tickets AS t
+                JOIN orders AS o ON o.order_id = t.order_id
+                LEFT JOIN order_items AS oi ON oi.order_id = o.order_id
+                WHERE o.customer_id = ?
+                  AND t.ticket_type = 'invoice_generation'
+                  AND t.status IN ('queued', 'in_progress')
+                GROUP BY t.ticket_id
+                ORDER BY t.created_at ASC, t.ticket_id ASC
+                """,
+                (customer_id,),
+            ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    def generate_invoice_for_ticket(
+        self,
+        customer_id,
+        ticket_id,
+        *,
+        invoice_id,
+        invoice_number,
+        in_progress_history_id,
+        completed_history_id,
+        generated_at,
+        invoice_item_id_provider,
+    ):
+        """Atomically snapshot an order into an invoice and complete its open ticket."""
+        with self._connect_writable() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            ticket_row = connection.execute(
+                """
+                SELECT
+                    t.ticket_id,
+                    t.order_id,
+                    t.status,
+                    o.currency,
+                    o.delivery_address,
+                    c.name AS billing_name
+                FROM tickets AS t
+                JOIN orders AS o ON o.order_id = t.order_id
+                JOIN customers AS c ON c.customer_id = o.customer_id
+                WHERE c.customer_id = ?
+                  AND lower(t.ticket_id) = lower(?)
+                  AND t.ticket_type = 'invoice_generation'
+                """,
+                (customer_id, ticket_id.strip()),
+            ).fetchone()
+            if ticket_row is None:
+                return {"state": "ticket_not_found"}
+
+            existing_invoice = connection.execute(
+                """
+                SELECT invoice_id, invoice_number, order_id, issued_at, document_url
+                FROM invoices
+                WHERE generation_ticket_id = ?
+                """,
+                (ticket_row["ticket_id"],),
+            ).fetchone()
+            if existing_invoice is not None:
+                return {
+                    "state": "available",
+                    "created": False,
+                    "invoice": dict(existing_invoice),
+                }
+
+            if ticket_row["status"] not in {"queued", "in_progress"}:
+                return {
+                    "state": "ticket_not_open",
+                    "ticket_status": ticket_row["status"],
+                }
+
+            item_rows = connection.execute(
+                """
+                SELECT
+                    oi.order_item_id,
+                    p.name AS description,
+                    oi.quantity,
+                    oi.unit_price_minor
+                FROM order_items AS oi
+                JOIN products AS p ON p.product_id = oi.product_id
+                WHERE oi.order_id = ?
+                ORDER BY oi.order_item_id
+                """,
+                (ticket_row["order_id"],),
+            ).fetchall()
+            subtotal_minor = sum(
+                row["quantity"] * row["unit_price_minor"] for row in item_rows
+            )
+
+            previous_status = ticket_row["status"]
+            if previous_status == "queued":
+                connection.execute(
+                    """
+                    UPDATE tickets
+                    SET status = 'in_progress', updated_at = ?
+                    WHERE ticket_id = ?
+                    """,
+                    (generated_at, ticket_row["ticket_id"]),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO ticket_status_history (
+                        ticket_status_history_id, ticket_id, from_status,
+                        to_status, changed_at, note
+                    ) VALUES (?, ?, 'queued', 'in_progress', ?, 'Generator claimed ticket')
+                    """,
+                    (in_progress_history_id, ticket_row["ticket_id"], generated_at),
+                )
+                previous_status = "in_progress"
+
+            connection.execute(
+                """
+                UPDATE tickets
+                SET status = 'completed', updated_at = ?, completed_at = ?
+                WHERE ticket_id = ?
+                """,
+                (generated_at, generated_at, ticket_row["ticket_id"]),
+            )
+            connection.execute(
+                """
+                INSERT INTO ticket_status_history (
+                    ticket_status_history_id, ticket_id, from_status,
+                    to_status, changed_at, note
+                ) VALUES (?, ?, ?, 'completed', ?, ?)
+                """,
+                (
+                    completed_history_id,
+                    ticket_row["ticket_id"],
+                    previous_status,
+                    generated_at,
+                    f"Invoice {invoice_number} issued",
+                ),
+            )
+
+            document_url = f"/mock-invoices/{invoice_number}.pdf"
+            connection.execute(
+                """
+                INSERT INTO invoices (
+                    invoice_id, invoice_number, order_id, generation_ticket_id,
+                    issued_at, billing_name, billing_address, currency,
+                    subtotal_minor, tax_minor, total_minor, document_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                """,
+                (
+                    invoice_id,
+                    invoice_number,
+                    ticket_row["order_id"],
+                    ticket_row["ticket_id"],
+                    generated_at,
+                    ticket_row["billing_name"],
+                    ticket_row["delivery_address"],
+                    ticket_row["currency"],
+                    subtotal_minor,
+                    subtotal_minor,
+                    document_url,
+                ),
+            )
+            connection.executemany(
+                """
+                INSERT INTO invoice_items (
+                    invoice_item_id, invoice_id, source_order_item_id,
+                    description, quantity, unit_price_minor, tax_minor,
+                    line_total_minor
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                [
+                    (
+                        invoice_item_id_provider(),
+                        invoice_id,
+                        row["order_item_id"],
+                        row["description"],
+                        row["quantity"],
+                        row["unit_price_minor"],
+                        row["quantity"] * row["unit_price_minor"],
+                    )
+                    for row in item_rows
+                ],
+            )
+
+            return {
+                "state": "available",
+                "created": True,
+                "invoice": {
+                    "invoice_id": invoice_id,
+                    "invoice_number": invoice_number,
+                    "order_id": ticket_row["order_id"],
+                    "issued_at": generated_at,
+                    "document_url": document_url,
+                },
+            }
 
     def get_order_details(self, customer_id, order_id):
         customer_orders = self.get_customer_orders(customer_id)

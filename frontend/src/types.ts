@@ -1,4 +1,12 @@
 export type OrderStatus = "processing" | "shipped" | "delivered" | "cancelled";
+export type InvoiceStatus =
+  | "not_requested"
+  | "queued"
+  | "in_progress"
+  | "available"
+  | "failed"
+  | "cancelled";
+export type TicketStatus = "queued" | "in_progress";
 
 export interface Customer {
   customer_id: string;
@@ -27,12 +35,37 @@ export interface Order {
   delivery_address: string;
   payment_method_display: string;
   total_minor: number;
+  invoice_status: InvoiceStatus;
   items: OrderItem[];
 }
 
 export interface CustomerOrders {
   customer: Customer;
   orders: Order[];
+}
+
+export interface InvoiceTicket {
+  ticket_id: string;
+  order_id: string;
+  status: TicketStatus;
+  created_at: string;
+  updated_at: string;
+  order_status: OrderStatus;
+  currency: string;
+  item_count: number;
+  total_minor: number;
+}
+
+export interface InvoiceGeneration {
+  state: "available";
+  created: boolean;
+  invoice: {
+    invoice_id: string;
+    invoice_number: string;
+    order_id: string;
+    issued_at: string;
+    document_url: string;
+  };
 }
 
 export interface ChatMessage {

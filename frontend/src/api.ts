@@ -1,4 +1,10 @@
-import type { ChatResponse, Customer, CustomerOrders } from "./types";
+import type {
+  ChatResponse,
+  Customer,
+  CustomerOrders,
+  InvoiceGeneration,
+  InvoiceTicket,
+} from "./types";
 
 type ChatStreamEvent =
   | { type: "status"; message: string }
@@ -25,6 +31,27 @@ export function fetchCustomerOrders(
   signal?: AbortSignal,
 ): Promise<CustomerOrders> {
   return getJson<CustomerOrders>(`/api/customers/${customerId}/orders`, signal);
+}
+
+export function fetchOpenTickets(
+  customerId: string,
+  signal?: AbortSignal,
+): Promise<InvoiceTicket[]> {
+  return getJson<InvoiceTicket[]>(`/api/customers/${customerId}/tickets`, signal);
+}
+
+export async function generateInvoice(
+  customerId: string,
+  ticketId: string,
+): Promise<InvoiceGeneration> {
+  const response = await fetch(
+    `/api/customers/${customerId}/tickets/${ticketId}/generate-invoice`,
+    { method: "POST" },
+  );
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  return response.json() as Promise<InvoiceGeneration>;
 }
 
 export async function streamChatMessage(

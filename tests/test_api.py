@@ -55,6 +55,45 @@ class ApiTests(unittest.TestCase):
             body["orders"][0]["items"][0]["product_name"],
             "NoiseBeat H100 Headphones",
         )
+        self.assertEqual(body["orders"][0]["invoice_status"], "available")
+        self.assertEqual(body["orders"][1]["invoice_status"], "not_requested")
+
+    def test_lists_open_invoice_tickets_for_customer(self):
+        response = self.client.get("/api/customers/CUS-002/tickets")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]["ticket_id"], "TKT-7002")
+        self.assertEqual(response.json()[0]["item_count"], 2)
+
+    def test_generates_invoice_and_refresh_endpoints_reflect_completion(self):
+        response = self.client.post(
+            "/api/customers/CUS-002/tickets/TKT-7002/generate-invoice"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["created"])
+        self.assertEqual(response.json()["state"], "available")
+        self.assertEqual(response.json()["invoice"]["order_id"], "ORD-1087")
+
+        tickets = self.client.get("/api/customers/CUS-002/tickets")
+        orders = self.client.get("/api/customers/CUS-002/orders")
+        generated_order = next(
+            order for order in orders.json()["orders"] if order["order_id"] == "ORD-1087"
+        )
+        self.assertEqual(tickets.json(), [])
+        self.assertEqual(generated_order["invoice_status"], "available")
+
+    def test_rejects_foreign_and_closed_invoice_tickets(self):
+        foreign = self.client.post(
+            "/api/customers/CUS-001/tickets/TKT-7002/generate-invoice"
+        )
+        closed = self.client.post(
+            "/api/customers/CUS-003/tickets/TKT-7003/generate-invoice"
+        )
+
+        self.assertEqual(foreign.status_code, 404)
+        self.assertEqual(closed.status_code, 409)
 
     def test_customer_response_does_not_include_other_customers_orders(self):
         response = self.client.get("/api/customers/CUS-001/orders")

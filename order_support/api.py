@@ -1,9 +1,11 @@
 """FastAPI application exposing order data and customer-support chat."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,6 +18,8 @@ from order_support.models import (
     ChatResponse,
     CustomerOrdersRead,
     CustomerRead,
+    InvoiceGenerationRead,
+    InvoiceTicketRead,
 )
 from order_support.repository import OrderRepository
 
@@ -86,6 +90,39 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
         result = repository.get_customer_orders(customer_id)
         if result is None:
             raise HTTPException(status_code=404, detail="Customer not found")
+        return result
+
+    @application.get(
+        "/api/customers/{customer_id}/tickets",
+        response_model=list[InvoiceTicketRead],
+    )
+    def get_open_invoice_tickets(customer_id: str):
+        result = repository.get_open_invoice_tickets(customer_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        return result
+
+    @application.post(
+        "/api/customers/{customer_id}/tickets/{ticket_id}/generate-invoice",
+        response_model=InvoiceGenerationRead,
+    )
+    def generate_invoice(customer_id: str, ticket_id: str):
+        generated_at = datetime.now(ZoneInfo("Asia/Kolkata"))
+        unique_suffix = uuid4().hex.upper()
+        result = repository.generate_invoice_for_ticket(
+            customer_id,
+            ticket_id,
+            invoice_id=f"INV-{unique_suffix}",
+            invoice_number=f"INV-{generated_at.year}-{unique_suffix[:8]}",
+            in_progress_history_id=f"TSH-{uuid4().hex.upper()}",
+            completed_history_id=f"TSH-{uuid4().hex.upper()}",
+            generated_at=generated_at.isoformat(timespec="seconds"),
+            invoice_item_id_provider=lambda: f"INI-{uuid4().hex.upper()}",
+        )
+        if result["state"] == "ticket_not_found":
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        if result["state"] == "ticket_not_open":
+            raise HTTPException(status_code=409, detail="Ticket is not open")
         return result
 
     @application.post("/api/chat", response_model=ChatResponse)
