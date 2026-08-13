@@ -309,9 +309,22 @@ states, invoice snapshots, history transitions, and automatic endpoint refresh. 
 check confirmed the ticket count changed from one to zero and the order status changed to
 `Available` without a page reload; the demo database was reset afterward.
 
+### 18. Clean database on each demo run
+
+Added `scripts.run_api` as the normal local API launcher. It rebuilds the default SQLite
+database from the checked-in schema and seed data once before starting Uvicorn with hot
+reload. The reset deliberately happens in the launcher rather than during FastAPI import,
+so application imports, tests, and hot-reload child processes do not unexpectedly erase
+state. Starting Uvicorn directly remains an intentional non-resetting escape hatch.
+
+Launcher tests mutate a temporary database, confirm seeded invoice data is restored before
+the server runner is called, and verify the expected local host, port, app target, and reload
+configuration.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
+- Reset the demo database automatically whenever the normal local API launcher starts.
 - List fictional customers.
 - Retrieve only the orders belonging to one customer.
 - Retrieve customer-scoped invoice snapshots and latest invoice ticket status.
@@ -337,23 +350,25 @@ check confirmed the ticket count changed from one to zero and the order status c
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 85 passing tests. The frontend passes dependency checks, linting,
+suite currently contains 87 passing tests. The frontend passes dependency checks, linting,
 and a TypeScript production build.
 
 ## Running the project
 
-Install the Python environment and rebuild the database:
+Install the Python environment:
 
 ```bash
 uv sync
-uv run python scripts/reset_database.py
 ```
 
-Start the API in one terminal:
+Start the API in one terminal. This command resets the demo database before every run:
 
 ```bash
-uv run uvicorn order_support.api:app --reload
+uv run python -m scripts.run_api
 ```
+
+Use `uv run python -m scripts.reset_database` to reset without starting the API. Directly
+starting `uvicorn order_support.api:app` intentionally preserves the current database.
 
 Install and start the dashboard in another terminal:
 
