@@ -440,6 +440,26 @@ invalid catalog/default/provider data, safe option exposure, request validation,
 binding, provider forwarding, and preservation of streamed reasoning details. Frontend model
 selection is intentionally deferred to the next milestone.
 
+### 26. Composer model selection — frontend
+
+Moved New conversation out of the title bar and into a two-level assistant composer inspired
+by the supplied Claude mobile reference while retaining the app's existing visual language.
+The textarea occupies the upper row; the footer places New conversation at the left and the
+model selector plus Send at the right. No microphone or inactive voice affordance was added.
+
+The dashboard loads its catalog from `GET /api/model-options`, initializes the backend default,
+and includes `model_id` and `route_id` in every streamed chat request. Provider-route selection
+appears only when the selected model defines multiple routes, avoiding a redundant Nitro-only
+control today. Changing either selection clears the transcript, starts a fresh conversation,
+and confirms the change with a toast. New conversation and selection controls are disabled
+while a response is streaming.
+
+Verification: frontend lint and production build pass. Browser checks at 1280px, 375px, and
+320px confirmed the responsive composer, selector options, centered mobile title, absence of
+the old title-bar action, and no horizontal overflow. Model switching selected GLM 5.2 and
+showed the fresh-conversation toast. The 375px dark-mode pass confirmed the new surface and
+controls remain legible. No browser console errors were reported.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -461,6 +481,8 @@ selection is intentionally deferred to the next milestone.
 - Continue follow-up conversations using earlier hidden tool results.
 - Chat with the assistant from the selected customer's dashboard.
 - Start a fresh conversation explicitly or by changing customers.
+- Choose the model from the assistant composer; models and conditional provider routes come
+  from the backend catalog, and changing either begins a fresh conversation.
 - Switch between order, ticket, and assistant tabs without losing the current chat.
 - Use a compact, keyboard-accessible mobile drawer to navigate, change appearance, and switch
   customers without crowding the title bar.
@@ -549,8 +571,8 @@ uv run python -m scripts.run_evaluations --model glm-5-2 --route nitro
 - Some chat turns take roughly 10–15 seconds; this is sequential multi-round tool calling
   plus OpenRouter provider routing variance. The backend now supports provider-pinned routes,
   but the checked-in catalog currently defines only Nitro automatic routes.
-- The backend model catalog is not yet exposed through a frontend selector; the dashboard
-  continues to use the configured default model and route.
+- The checked-in catalog currently defines one Nitro automatic route for each model, so the
+  conditional provider-route selector is not visible until another route is configured.
 - The dashboard and API currently run as separate development processes.
 - Tool selection and execution still happen before the useful final answer begins streaming.
 - Deterministic answer checks currently use explicit accepted phrases and can require careful
@@ -562,9 +584,7 @@ uv run python -m scripts.run_evaluations --model glm-5-2 --route nitro
 
 ## Recommended next milestone
 
-Add the frontend model and provider-route selectors, loading options from
-`GET /api/model-options` and starting a fresh conversation when either choice changes. After
-that UI is measurable, compare the configured models and optionally add provider-pinned
+Compare the configured models with repeated evaluation runs and optionally add provider-pinned
 routes for lower tail latency. Separately, the invoice PDF now exists but bills from a
 placeholder seller with zero tax; a following milestone could model a real seller entity and
 tax, or integrate with an external billing system.

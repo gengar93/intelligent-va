@@ -6,6 +6,7 @@ import type {
   CustomerOrders,
   InvoiceGeneration,
   InvoiceTicket,
+  ModelOptions,
   Order,
   SegmentKind,
 } from "./types";
@@ -38,6 +39,10 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 
 export function fetchCustomers(signal?: AbortSignal): Promise<Customer[]> {
   return getJson<Customer[]>("/api/customers", signal);
+}
+
+export function fetchModelOptions(signal?: AbortSignal): Promise<ModelOptions> {
+  return getJson<ModelOptions>("/api/model-options", signal);
 }
 
 export async function resetDemoDatabase(): Promise<void> {
@@ -106,6 +111,8 @@ export async function streamChatMessage(
   customerId: string,
   message: string,
   conversationId: string | null,
+  modelId: string,
+  routeId: string,
   callbacks: ChatStreamCallbacks,
   signal?: AbortSignal,
 ): Promise<ChatResponse> {
@@ -116,6 +123,8 @@ export async function streamChatMessage(
       customer_id: customerId,
       message,
       conversation_id: conversationId,
+      model_id: modelId || undefined,
+      route_id: routeId || undefined,
     }),
     signal,
   });

@@ -50,9 +50,15 @@ headphones.svg, coffee-maker.svg, backpack.svg, bottle.svg, mixer.svg, jacket.sv
 Style: consistent thin-line illustrations on transparent background, stroke currentColor
 or warm neutral (#8a7f74), so they sit on the Atelier cream card background.
 
-## Frontend behaviors (unchanged from current app)
+## Frontend behaviors
 
 - Customer switch aborts in-flight chat, resets conversation, reloads orders + tickets.
+- The composer footer owns New conversation, the model selector, any conditional route
+  selector, and Send. The title bar does not duplicate New conversation.
+- Model options are loaded from `GET /api/model-options`; the frontend does not hardcode the
+  catalog. A route selector appears only when the selected model has multiple routes.
+- Changing model or route clears the transcript, starts a fresh backend conversation, and
+  shows a confirmation toast. Selection controls are disabled during a streamed turn.
 - After a chat turn or invoice generation, refresh orders + tickets.
 - Enter submits, Shift+Enter newline. Errors restore the draft.
 
@@ -62,5 +68,6 @@ or warm neutral (#8a7f74), so they sit on the Atelier cream card background.
 - Order-card actions: "View order" (jump to Orders tab with that order selected). No
   Track order / Email invoice anywhere. Invoice state shown as a status line on the card.
 - Follow-up chips: text only, no icons.
+- The composer has no microphone or voice controls.
 - Reasoning UI: inline expandable "Show reasoning" per assistant message (Concept A style),
   showing reasoning notes, tool calls with args, and results as expandable JSON.

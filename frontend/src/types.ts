@@ -87,6 +87,23 @@ export interface InvoiceGeneration {
   };
 }
 
+export interface ModelRouteOption {
+  id: string;
+  label: string;
+}
+
+export interface ModelOption {
+  id: string;
+  label: string;
+  default_route: string;
+  routes: ModelRouteOption[];
+}
+
+export interface ModelOptions {
+  default_model: string;
+  models: ModelOption[];
+}
+
 /* ---- Chat stream contract v2 ---- */
 
 export type SegmentKind = "reasoning" | "answer";

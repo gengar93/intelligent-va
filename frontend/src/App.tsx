@@ -5,6 +5,7 @@ import {
   fetchClosedTickets,
   fetchCustomerOrders,
   fetchCustomers,
+  fetchModelOptions,
   fetchOpenTickets,
   generateInvoice,
   resetDemoDatabase,
@@ -23,7 +24,6 @@ import {
   MenuIcon,
   MoonIcon,
   OrdersIcon,
-  PlusIcon,
   ResetIcon,
   SunIcon,
   TicketsIcon,
@@ -34,6 +34,7 @@ import type {
   Customer,
   CustomerOrders,
   InvoiceTicket,
+  ModelOptions,
 } from "./types";
 
 type ActiveTab = "orders" | "tickets" | "assistant";
@@ -86,6 +87,9 @@ export default function App() {
   const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
   const liveTurnRef = useRef<LiveTurn | null>(null);
   const chatRequestRef = useRef<AbortController | null>(null);
+  const [modelOptions, setModelOptions] = useState<ModelOptions | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const [selectedRouteId, setSelectedRouteId] = useState("");
 
   const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState<string | null>(null);
@@ -205,6 +209,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    fetchModelOptions(controller.signal)
+      .then((result) => {
+        const defaultModel =
+          result.models.find((model) => model.id === result.default_model) ?? result.models[0];
+        setModelOptions(result);
+        if (defaultModel) {
+          setSelectedModelId(defaultModel.id);
+          setSelectedRouteId(defaultModel.default_route);
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (requestError instanceof Error && requestError.name !== "AbortError") {
+          setModelOptions(null);
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (!selectedCustomerId) return;
     const controller = new AbortController();
     Promise.all([
@@ -234,6 +258,11 @@ export default function App() {
     [customers, selectedCustomerId],
   );
 
+  const selectedModel = useMemo(
+    () => modelOptions?.models.find((model) => model.id === selectedModelId) ?? null,
+    [modelOptions, selectedModelId],
+  );
+
   const updateLive = useCallback((updater: (turn: LiveTurn) => LiveTurn) => {
     const current = liveTurnRef.current;
     if (!current) return;
@@ -255,6 +284,23 @@ export default function App() {
     setChatStatus(null);
     setIsSendingChat(false);
     clearLiveTurn();
+  }
+
+  function handleModelChange(modelId: string) {
+    const model = modelOptions?.models.find((option) => option.id === modelId);
+    if (!model || model.id === selectedModelId || isSendingChat) return;
+    resetConversation();
+    setSelectedModelId(model.id);
+    setSelectedRouteId(model.default_route);
+    showToast(`New conversation with ${model.label}`);
+  }
+
+  function handleRouteChange(routeId: string) {
+    const route = selectedModel?.routes.find((option) => option.id === routeId);
+    if (!route || route.id === selectedRouteId || isSendingChat) return;
+    resetConversation();
+    setSelectedRouteId(route.id);
+    showToast(`New conversation using ${route.label}`);
   }
 
   function handleCustomerChange(customerId: string) {
@@ -393,6 +439,8 @@ export default function App() {
         selectedCustomerId,
         trimmed,
         conversationId,
+        selectedModelId,
+        selectedRouteId,
         {
           onStatus: (status) => setChatStatus(status),
           onDelta: (content) =>
@@ -506,19 +554,6 @@ export default function App() {
           </nav>
 
           <div className="topbar-spacer" />
-
-          {activeTab === "assistant" ? (
-            <button
-              type="button"
-              className="icon-btn new-conversation-btn"
-              title="New conversation"
-              aria-label="New conversation"
-              onClick={resetConversation}
-              disabled={(chatMessages.length === 0 && !liveTurn) || isSendingChat}
-            >
-              <PlusIcon />
-            </button>
-          ) : null}
 
           <button
             type="button"
@@ -801,8 +836,14 @@ export default function App() {
                 isSending={isSendingChat}
                 currentStatus={chatStatus}
                 error={chatError}
+                modelOptions={modelOptions}
+                selectedModelId={selectedModelId}
+                selectedRouteId={selectedRouteId}
                 onDraftChange={setChatDraft}
                 onSend={sendChatMessage}
+                onNewConversation={resetConversation}
+                onModelChange={handleModelChange}
+                onRouteChange={handleRouteChange}
                 onViewOrder={handleViewOrder}
                 onFollowUp={sendChatMessage}
               />

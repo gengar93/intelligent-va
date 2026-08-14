@@ -3,10 +3,11 @@ import type { FormEvent, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { formatElapsed } from "../format";
-import { ChevronRightIcon, SendIcon, SparkIcon } from "../icons";
+import { ChevronRightIcon, PlusIcon, SendIcon, SparkIcon } from "../icons";
 import type {
   ChatMessage,
   Customer,
+  ModelOptions,
   Order,
   ReasoningStep,
   ToolCallStep,
@@ -195,8 +196,14 @@ export function AssistantView({
   isSending,
   currentStatus,
   error,
+  modelOptions,
+  selectedModelId,
+  selectedRouteId,
   onDraftChange,
   onSend,
+  onNewConversation,
+  onModelChange,
+  onRouteChange,
   onViewOrder,
   onFollowUp,
 }: {
@@ -207,13 +214,21 @@ export function AssistantView({
   isSending: boolean;
   currentStatus: string | null;
   error: string | null;
+  modelOptions: ModelOptions | null;
+  selectedModelId: string;
+  selectedRouteId: string;
   onDraftChange: (value: string) => void;
   onSend: (message: string) => void;
+  onNewConversation: () => void;
+  onModelChange: (modelId: string) => void;
+  onRouteChange: (routeId: string) => void;
   onViewOrder: (orderId: string) => void;
   onFollowUp: (text: string) => void;
 }) {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const lastMessage = messages[messages.length - 1];
+  const selectedModel =
+    modelOptions?.models.find((model) => model.id === selectedModelId) ?? null;
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -316,14 +331,68 @@ export function AssistantView({
               }
             }}
           />
-          <button
-            type="submit"
-            className="send-btn"
-            aria-label="Send message"
-            disabled={isSending || !draft.trim()}
-          >
-            <SendIcon size={16} />
-          </button>
+          <div className="composer-actions">
+            <button
+              type="button"
+              className="composer-new-chat"
+              title="New conversation"
+              aria-label="New conversation"
+              disabled={(messages.length === 0 && !liveTurn) || isSending}
+              onClick={onNewConversation}
+            >
+              <PlusIcon />
+            </button>
+
+            <div className="composer-controls">
+              <label className="sr-only" htmlFor="chat-model">
+                Model
+              </label>
+              <select
+                id="chat-model"
+                className="composer-select model-select"
+                value={selectedModelId}
+                disabled={isSending || !modelOptions || modelOptions.models.length === 0}
+                onChange={(event) => onModelChange(event.target.value)}
+              >
+                {!selectedModelId ? <option value="">Default model</option> : null}
+                {modelOptions?.models.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.label}
+                  </option>
+                ))}
+              </select>
+
+              {selectedModel && selectedModel.routes.length > 1 ? (
+                <>
+                  <label className="sr-only" htmlFor="chat-route">
+                    Provider route
+                  </label>
+                  <select
+                    id="chat-route"
+                    className="composer-select route-select"
+                    value={selectedRouteId}
+                    disabled={isSending}
+                    onChange={(event) => onRouteChange(event.target.value)}
+                  >
+                    {selectedModel.routes.map((route) => (
+                      <option key={route.id} value={route.id}>
+                        {route.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
+
+              <button
+                type="submit"
+                className="send-btn"
+                aria-label="Send message"
+                disabled={isSending || !draft.trim()}
+              >
+                <SendIcon size={16} />
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>
