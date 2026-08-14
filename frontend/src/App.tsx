@@ -466,7 +466,7 @@ export default function App() {
         </div>
       </header>
 
-      <main>
+      <main className={activeTab === "assistant" ? "main--full" : undefined}>
         {error ? (
           <div className="inline-error page-error" role="alert">
             {error}

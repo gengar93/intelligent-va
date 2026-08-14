@@ -183,40 +183,47 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
         conversation_id = request.conversation_id or str(uuid4())
 
         def generate_events():
+            # Hold the lock only for shared-state access (session history read and
+            # the result write) — never across the model stream itself. Otherwise an
+            # aborted request keeps the lock during the slow upstream call and blocks
+            # the customer's next message.
             with conversation_lock:
                 history = get_session_history(customer_id, request.conversation_id)
                 try:
                     loop = get_conversation_loop()
                 except ValueError:
-                    yield _encode_stream_event(
-                        {"type": "error", "message": "The assistant is not configured"}
-                    )
-                    return
+                    loop = None
+            if loop is None:
+                yield _encode_stream_event(
+                    {"type": "error", "message": "The assistant is not configured"}
+                )
+                return
 
-                try:
-                    for event in loop.stream_turn(customer_id, message, history=history):
-                        if event["type"] != "result":
-                            yield _encode_stream_event(event)
-                            continue
+            try:
+                for event in loop.stream_turn(customer_id, message, history=history):
+                    if event["type"] != "result":
+                        yield _encode_stream_event(event)
+                        continue
 
+                    with conversation_lock:
                         conversations[conversation_id] = {
                             "customer_id": customer_id,
                             "history": event["history"],
                         }
-                        yield _encode_stream_event(
-                            {
-                                "type": "result",
-                                "conversation_id": conversation_id,
-                                "answer": event["answer"],
-                            }
-                        )
-                except (TypeError, ValueError, RuntimeError):
                     yield _encode_stream_event(
                         {
-                            "type": "error",
-                            "message": "The assistant could not complete the request",
+                            "type": "result",
+                            "conversation_id": conversation_id,
+                            "answer": event["answer"],
                         }
                     )
+            except (TypeError, ValueError, RuntimeError):
+                yield _encode_stream_event(
+                    {
+                        "type": "error",
+                        "message": "The assistant could not complete the request",
+                    }
+                )
 
         return StreamingResponse(
             generate_events(),

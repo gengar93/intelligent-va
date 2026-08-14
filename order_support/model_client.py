@@ -7,6 +7,11 @@ from openai import OpenAI
 from order_support.config import OpenRouterSettings
 
 
+# Cap a single upstream request. OpenRouter can route to a slow/overloaded
+# provider; without this the OpenAI SDK would wait up to its 600s default.
+REQUEST_TIMEOUT_SECONDS = 30.0
+
+
 class ChatModelClient(Protocol):
     def complete(self, messages, tools):
         """Return one assistant message, including any requested tool calls."""
@@ -21,6 +26,7 @@ class OpenRouterChatClient:
         self._client = sdk_client or OpenAI(
             api_key=settings.api_key,
             base_url=settings.base_url,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     def complete(self, messages, tools):

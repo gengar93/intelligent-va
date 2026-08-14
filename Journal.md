@@ -321,6 +321,40 @@ Launcher tests mutate a temporary database, confirm seeded invoice data is resto
 the server runner is called, and verify the expected local host, port, app target, and reload
 configuration.
 
+### 19. "Atelier" editorial redesign
+
+Replaced the previous console interface with a hand-crafted editorial design (Fraunces and
+Inter typography, a warm paper and terracotta palette, hairline borders). Added product
+images to the data model — `products.image_url` flows through the repository and API and is
+rendered on orders and chat cards, with a neutral placeholder when an image is missing.
+Added an order status stepper and a Tickets history view (completed, failed, and cancelled)
+backed by a new `GET /api/customers/{id}/tickets/closed` endpoint, which subsumes the
+previously recommended ticket-history milestone. Three self-contained design mockups and the
+stream contract that guided the build are kept under `mockups/`.
+
+### 20. Rich agent stream and modern agentic chat
+
+Extended `/api/chat/stream` to a v2 protocol: typed `tool_call` and `tool_result` events
+carrying real arguments, returned JSON, and measured elapsed time; reasoning-versus-answer
+segment classification; a prompted one-sentence narration before each tool call; and a
+trailing machine-read metadata block that is suppressed from the visible stream and parsed
+into database-hydrated order cards and follow-up suggestions, with rule-based fallbacks when
+the model omits it. Card contents always come from the database, never from model text, so a
+card cannot show a wrong price. The assistant tab was reworked into a full-screen, single
+reading column in the style of modern coding assistants: tool calls stream inline as compact
+expandable rows, narration and answer render Markdown live as tokens arrive, and the whole
+trace collapses into an expandable element once the final answer is ready.
+
+### 21. Chat latency and reliability hardening
+
+Capped each upstream model request at 30 seconds, replacing the SDK's 600-second default so a
+slow or overloaded OpenRouter provider fails fast. Narrowed the conversation lock so it is
+held only while reading session history and writing the result, never across the model
+stream; an aborted request — for example from switching customers mid-response, which the
+dashboard allows — can no longer hold the lock and delay the customer's next message. Longer
+turns (roughly 10–15 seconds) remain dominated by sequential multi-round tool calling and by
+provider routing variance for the configured flash model, neither of which is a defect.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -342,6 +376,13 @@ configuration.
 - Switch between order, ticket, and assistant tabs without losing the current chat.
 - See invoice status on each order and refresh it immediately after ticket completion.
 - See live, tool-backed activity while the assistant works.
+- Inspect the assistant's streamed tool calls, arguments, and returned results inline, then
+  collapse the whole reasoning trace once the final answer is ready.
+- Read streamed answers and narration as live Markdown while tokens arrive.
+- Receive database-backed order cards and suggested follow-up questions after a reply.
+- Render product images on orders and chat cards, with a placeholder when one is missing.
+- Review completed, failed, and cancelled invoice tickets in a Tickets history view.
+- Cap each upstream model request at 30 seconds.
 - Read model-generated answers as they stream into the conversation.
 - Run deterministic, customer-isolated evaluations against the configured model.
 - Follow the operating system's light or dark appearance automatically.
@@ -350,8 +391,8 @@ configuration.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 87 passing tests. The frontend passes dependency checks, linting,
-and a TypeScript production build.
+suite currently contains 93 passing tests. The frontend passes linting and a TypeScript
+production build.
 
 ## Running the project
 
@@ -409,10 +450,10 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
   not remain in model context.
 - Invoice generation creates a database snapshot and mock URL, but does not create real PDF
   content or perform billing/tax integration.
-- The Tickets tab shows only open work; completed, failed, and cancelled ticket history does
-  not yet have an operator-facing audit view.
 - There is no tracking history, payment status, cancellation process, refund process, or
   return process.
+- Some chat turns take roughly 10–15 seconds; this is sequential multi-round tool calling
+  plus OpenRouter provider routing variance, not yet addressed by provider pinning.
 - The dashboard and API currently run as separate development processes.
 - Tool selection and execution still happen before the useful final answer begins streaming.
 - Deterministic answer checks currently use explicit accepted phrases and can require careful
@@ -423,9 +464,10 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 
 ## Recommended next milestone
 
-Add an operator-facing ticket history view with completed, failed, and cancelled filters,
-then decide whether the next invoice milestone should generate downloadable PDF content or
-integrate with an external billing system.
+Reduce chat tail latency by pinning OpenRouter provider routing and/or selecting a faster
+tool-capable model, since multi-round tool turns currently take 10–15 seconds. Then decide
+whether the next invoice milestone should generate downloadable PDF content or integrate with
+an external billing system.
 
 ## Later roadmap
 

@@ -1,12 +1,19 @@
-import { useEffect, useRef } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 
-import { SendIcon, SparkIcon } from "../icons";
-import type { ChatMessage, Customer, Order, ReasoningStep } from "../types";
+import { formatElapsed } from "../format";
+import { ChevronRightIcon, SendIcon, SparkIcon } from "../icons";
+import type {
+  ChatMessage,
+  Customer,
+  Order,
+  ReasoningStep,
+  ToolCallStep,
+  ToolResultStep,
+} from "../types";
 
 import { OrderCard } from "./OrderCard";
-import { ReasoningPanel } from "./ReasoningPanel";
 
 const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br"];
 
@@ -27,38 +34,110 @@ function AssistantMarkdown({ children }: { children: string }) {
   );
 }
 
-function FollowUps({
-  suggestions,
-  disabled,
-  onFollowUp,
-}: {
-  suggestions: string[];
-  disabled: boolean;
-  onFollowUp: (text: string) => void;
-}) {
-  if (suggestions.length === 0) return null;
+function prettyJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/** One tool invocation: the call and (when finished) its result, as a compact expandable row. */
+function ToolRow({ call, result }: { call: ToolCallStep; result: ToolResultStep | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+  const entries = Object.entries(call.arguments);
+  const running = result === undefined;
   return (
-    <>
-      <div className="followup-label eyebrow">Suggested follow-ups</div>
-      <div className="followups">
-        {suggestions.map((suggestion) => (
-          <button
-            type="button"
-            className="chip"
-            key={suggestion}
-            disabled={disabled}
-            onClick={() => onFollowUp(suggestion)}
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
-    </>
+    <div className="tool-row">
+      <button
+        type="button"
+        className="tool-head"
+        aria-expanded={expanded}
+        disabled={running}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span className={`tool-chev ${expanded ? "open" : ""}`} aria-hidden="true">
+          <ChevronRightIcon size={13} />
+        </span>
+        <code className="tool-call">
+          <span className="fn">{call.name}</span>
+          {"("}
+          {entries.map(([key, value], index) => (
+            <span key={key}>
+              {index > 0 ? ", " : ""}
+              <span className="arg">{key}</span>=<span className="str">{JSON.stringify(value)}</span>
+            </span>
+          ))}
+          {")"}
+        </code>
+        {running ? (
+          <span className="spinner spinner--sm" aria-label="Running" />
+        ) : (
+          <span className="tool-time tnum">{formatElapsed(result.elapsed_ms)}</span>
+        )}
+      </button>
+      {expanded && result !== undefined ? (
+        <pre className="code tool-json">{prettyJson(result.result)}</pre>
+      ) : null}
+    </div>
   );
 }
 
-function AssistantTurnBody({
-  reasoning,
+/** Collapsed-by-default disclosure wrapping a finished turn's trace. */
+function TraceDisclosure({ steps }: { steps: ReasoningStep[] }) {
+  const [open, setOpen] = useState(false);
+  const toolCalls = steps.filter((step) => step.kind === "tool_call").length;
+  if (steps.length === 0) return null;
+  const label =
+    toolCalls === 0
+      ? "Reasoning"
+      : `Reasoning · ${toolCalls} tool ${toolCalls === 1 ? "call" : "calls"}`;
+  return (
+    <div className="trace">
+      <button
+        type="button"
+        className="trace-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={`tool-chev ${open ? "open" : ""}`} aria-hidden="true">
+          <ChevronRightIcon size={13} />
+        </span>
+        {label}
+      </button>
+      {open ? (
+        <div className="trace-body">
+          <TurnSteps steps={steps} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Interleaves narration and tool rows in the order they streamed. */
+function TurnSteps({ steps }: { steps: ReasoningStep[] }) {
+  const items: ReactNode[] = [];
+  steps.forEach((step, index) => {
+    if (step.kind === "reasoning") {
+      items.push(
+        <div className="turn-think" key={index}>
+          <AssistantMarkdown>{step.text}</AssistantMarkdown>
+        </div>,
+      );
+    } else if (step.kind === "tool_call") {
+      const result = steps.find(
+        (candidate): candidate is ToolResultStep =>
+          candidate.kind === "tool_result" && candidate.id === step.id,
+      );
+      items.push(<ToolRow key={index} call={step} result={result} />);
+    }
+    // tool_result steps render inside their ToolRow.
+  });
+  return <>{items}</>;
+}
+
+function AssistantTurn({
+  steps,
   live,
   liveBuffer,
   answer,
@@ -66,7 +145,7 @@ function AssistantTurnBody({
   status,
   onViewOrder,
 }: {
-  reasoning: ReasoningStep[];
+  steps: ReasoningStep[];
   live: boolean;
   liveBuffer: string;
   answer: string | null;
@@ -74,25 +153,29 @@ function AssistantTurnBody({
   status: string | null;
   onViewOrder: (orderId: string) => void;
 }) {
+  const hasAnswer = answer !== null && answer !== "";
   return (
-    <div className="msg bot">
-      <div className="col">
-        <ReasoningPanel steps={reasoning} live={live} liveBuffer={liveBuffer} />
-        {answer !== null && answer !== "" ? (
-          <div className="bubble">
-            <AssistantMarkdown>{answer}</AssistantMarkdown>
-          </div>
-        ) : null}
-        {live && status ? (
-          <div className="live-status" role="status">
-            <span className="spinner" aria-hidden="true" />
-            <span>{status}</span>
-          </div>
-        ) : null}
-        {cards.map((order) => (
-          <OrderCard key={order.order_id} order={order} onViewOrder={onViewOrder} />
-        ))}
-      </div>
+    <div className="turn">
+      {live ? <TurnSteps steps={steps} /> : <TraceDisclosure steps={steps} />}
+      {live && liveBuffer.trim() ? (
+        <div className="turn-answer">
+          <AssistantMarkdown>{liveBuffer}</AssistantMarkdown>
+        </div>
+      ) : null}
+      {hasAnswer ? (
+        <div className="turn-answer">
+          <AssistantMarkdown>{answer}</AssistantMarkdown>
+        </div>
+      ) : null}
+      {live && status && !hasAnswer && !liveBuffer.trim() ? (
+        <div className="live-status" role="status">
+          <span className="spinner" aria-hidden="true" />
+          <span>{status}</span>
+        </div>
+      ) : null}
+      {cards.map((order) => (
+        <OrderCard key={order.order_id} order={order} onViewOrder={onViewOrder} />
+      ))}
     </div>
   );
 }
@@ -137,8 +220,8 @@ export function AssistantView({
 
   return (
     <div className="assistant">
-      <div className="chat">
-        <div className="chat-body" aria-live="polite">
+      <div className="chat-scroll">
+        <div className="chat-col" aria-live="polite">
           {messages.length === 0 && !liveTurn ? (
             <div className="chat-empty">
               <div className="ico" aria-hidden="true">
@@ -151,13 +234,13 @@ export function AssistantView({
 
           {messages.map((message) =>
             message.role === "user" ? (
-              <div className="msg user" key={message.id}>
+              <div className="msg-user" key={message.id}>
                 <div className="bubble">{message.content}</div>
               </div>
             ) : (
               <div key={message.id}>
-                <AssistantTurnBody
-                  reasoning={message.reasoning ?? []}
+                <AssistantTurn
+                  steps={message.reasoning ?? []}
                   live={false}
                   liveBuffer=""
                   answer={message.content}
@@ -165,20 +248,28 @@ export function AssistantView({
                   status={null}
                   onViewOrder={onViewOrder}
                 />
-                {message === lastMessage && !liveTurn ? (
-                  <FollowUps
-                    suggestions={message.followUps ?? []}
-                    disabled={isSending}
-                    onFollowUp={onFollowUp}
-                  />
+                {message === lastMessage && !liveTurn && (message.followUps?.length ?? 0) > 0 ? (
+                  <div className="followups">
+                    {message.followUps?.map((suggestion) => (
+                      <button
+                        type="button"
+                        className="chip"
+                        key={suggestion}
+                        disabled={isSending}
+                        onClick={() => onFollowUp(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             ),
           )}
 
           {liveTurn ? (
-            <AssistantTurnBody
-              reasoning={liveTurn.steps}
+            <AssistantTurn
+              steps={liveTurn.steps}
               live
               liveBuffer={liveTurn.buffer}
               answer={liveTurn.answer}
@@ -190,40 +281,39 @@ export function AssistantView({
 
           <div ref={endOfMessagesRef} />
         </div>
+      </div>
 
+      <div className="composer-wrap">
         {error ? (
           <p className="inline-error chat-error" role="alert">
             {error}
           </p>
         ) : null}
-
         <form className="composer" onSubmit={handleSubmit}>
-          <div className="field-wrap">
-            <label className="sr-only" htmlFor="chat-message">
-              Ask about an order
-            </label>
-            <textarea
-              id="chat-message"
-              rows={1}
-              value={draft}
-              placeholder="Ask about an order, invoice, or delivery…"
-              disabled={isSending}
-              onChange={(event) => onDraftChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-          </div>
+          <label className="sr-only" htmlFor="chat-message">
+            Ask about an order
+          </label>
+          <textarea
+            id="chat-message"
+            rows={1}
+            value={draft}
+            placeholder="Ask about an order, invoice, or delivery…"
+            disabled={isSending}
+            onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+          />
           <button
             type="submit"
             className="send-btn"
             aria-label="Send message"
             disabled={isSending || !draft.trim()}
           >
-            <SendIcon />
+            <SendIcon size={16} />
           </button>
         </form>
       </div>
