@@ -66,6 +66,47 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json()[0]["ticket_id"], "TKT-7002")
         self.assertEqual(response.json()[0]["item_count"], 2)
 
+    def test_lists_closed_invoice_tickets_with_outcome_details(self):
+        completed = self.client.get("/api/customers/CUS-001/tickets/closed")
+        failed = self.client.get("/api/customers/CUS-003/tickets/closed")
+        none_closed = self.client.get("/api/customers/CUS-002/tickets/closed")
+        unknown = self.client.get("/api/customers/CUS-999/tickets/closed")
+
+        self.assertEqual(completed.status_code, 200)
+        completed_ticket = completed.json()[0]
+        self.assertEqual(completed_ticket["ticket_id"], "TKT-7001")
+        self.assertEqual(completed_ticket["status"], "completed")
+        self.assertEqual(completed_ticket["invoice_number"], "INV-2026-00481")
+        self.assertEqual(
+            completed_ticket["document_url"],
+            "/mock-invoices/INV-2026-00481.pdf",
+        )
+        self.assertEqual(completed_ticket["total_minor"], 749800)
+
+        failed_ticket = failed.json()[0]
+        self.assertEqual(failed_ticket["ticket_id"], "TKT-7003")
+        self.assertEqual(failed_ticket["status"], "failed")
+        self.assertEqual(
+            failed_ticket["failure_reason"],
+            "Billing address could not be validated",
+        )
+        self.assertIsNone(failed_ticket["invoice_number"])
+
+        self.assertEqual(none_closed.json(), [])
+        self.assertEqual(unknown.status_code, 404)
+
+    def test_generated_invoice_ticket_moves_to_closed_list(self):
+        self.client.post("/api/customers/CUS-002/tickets/TKT-7002/generate-invoice")
+
+        closed = self.client.get("/api/customers/CUS-002/tickets/closed")
+
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in closed.json()],
+            ["TKT-7002"],
+        )
+        self.assertEqual(closed.json()[0]["status"], "completed")
+        self.assertIsNotNone(closed.json()[0]["invoice_number"])
+
     def test_generates_invoice_and_refresh_endpoints_reflect_completion(self):
         response = self.client.post(
             "/api/customers/CUS-002/tickets/TKT-7002/generate-invoice"
@@ -187,7 +228,16 @@ class ApiTests(unittest.TestCase):
                     }
                 ],
             },
-            {"role": "assistant", "content": "Your newest order is shipped."},
+            {
+                "role": "assistant",
+                "content": (
+                    "Your newest order is shipped.\n\n"
+                    "```json\n"
+                    '{"card_order_ids": ["ORD-1042"],'
+                    ' "follow_ups": ["When will it arrive?"]}\n'
+                    "```"
+                ),
+            },
         ]
 
         response = self.client.post(
@@ -200,7 +250,17 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(response.headers["content-type"].startswith("application/x-ndjson"))
         self.assertEqual(
             [event["type"] for event in events],
-            ["status", "status", "delta", "result"],
+            [
+                "status",
+                "tool_call",
+                "status",
+                "tool_result",
+                "delta",
+                "segment",
+                "cards",
+                "follow_ups",
+                "result",
+            ],
         )
         self.assertEqual(
             [event["message"] for event in events if event["type"] == "status"],
@@ -209,7 +269,37 @@ class ApiTests(unittest.TestCase):
                 "Fetching your orders…",
             ],
         )
-        self.assertEqual(events[-2], {"type": "delta", "content": "Your newest order is shipped."})
+
+        tool_call = next(event for event in events if event["type"] == "tool_call")
+        self.assertEqual(tool_call["id"], "call-orders")
+        self.assertEqual(tool_call["name"], "list_orders")
+        self.assertEqual(tool_call["arguments"], {})
+
+        tool_result = next(event for event in events if event["type"] == "tool_result")
+        self.assertEqual(tool_result["id"], "call-orders")
+        self.assertEqual(tool_result["name"], "list_orders")
+        self.assertEqual(len(tool_result["result"]["orders"]), 2)
+        self.assertGreaterEqual(tool_result["elapsed_ms"], 0)
+
+        streamed_text = "".join(
+            event["content"] for event in events if event["type"] == "delta"
+        )
+        self.assertEqual(streamed_text.strip(), "Your newest order is shipped.")
+        self.assertNotIn("```", streamed_text)
+
+        segment = next(event for event in events if event["type"] == "segment")
+        self.assertEqual(segment["kind"], "answer")
+
+        cards = next(event for event in events if event["type"] == "cards")
+        self.assertEqual([order["order_id"] for order in cards["orders"]], ["ORD-1042"])
+        self.assertEqual(
+            cards["orders"][0]["items"][0]["image_url"],
+            "/products/headphones.svg",
+        )
+
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(follow_ups["suggestions"], ["When will it arrive?"])
+
         self.assertEqual(
             set(events[-1]),
             {"type", "conversation_id", "answer"},

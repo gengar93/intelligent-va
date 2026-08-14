@@ -39,6 +39,22 @@ class FakeModelClient:
         return deepcopy(self.responses.pop(0))
 
 
+class FakeStreamingModelClient:
+    def __init__(self, turns):
+        self.turns = list(turns)
+
+    def complete(self, messages, tools):
+        raise AssertionError("complete should not be used when streaming is available")
+
+    def stream_complete(self, messages, tools):
+        if not self.turns:
+            raise AssertionError("Fake streaming model has no turn remaining")
+        turn = self.turns.pop(0)
+        for chunk in turn["chunks"]:
+            yield {"type": "content_delta", "delta": chunk}
+        yield {"type": "message", "message": deepcopy(turn["message"])}
+
+
 class ConversationLoopTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -285,6 +301,142 @@ class ConversationLoopTests(unittest.TestCase):
         self.assertIn("call get_invoice", SYSTEM_PROMPT)
         self.assertIn("Never report invoice status from conversation history", SYSTEM_PROMPT)
         self.assertIn("reason order_cancelled", SYSTEM_PROMPT)
+
+    def test_system_prompt_requires_narration_and_metadata_block(self):
+        self.assertIn("one short sentence", SYSTEM_PROMPT)
+        self.assertIn("card_order_ids", SYSTEM_PROMPT)
+        self.assertIn("follow_ups", SYSTEM_PROMPT)
+
+    def test_streaming_classifies_segments_and_hides_metadata_block(self):
+        answer_content = (
+            "All good.\n\n"
+            "```json\n"
+            '{"card_order_ids": ["ORD-1042"], "follow_ups": ["A?", "B?"]}\n'
+            "```"
+        )
+        client = FakeStreamingModelClient(
+            [
+                {
+                    "chunks": ["Let me check", " your orders."],
+                    "message": {
+                        "role": "assistant",
+                        "content": "Let me check your orders.",
+                        "tool_calls": [
+                            {
+                                "id": "call-details",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_order_details",
+                                    "arguments": json.dumps({"order_id": "ORD-1042"}),
+                                },
+                            }
+                        ],
+                    },
+                },
+                {
+                    # The fence is split across chunks to exercise suppression.
+                    "chunks": ["All good.\n\n`", "``json\n{\"card_order_ids\":",
+                               ' ["ORD-1042"], "follow_ups": ["A?", "B?"]}\n```'],
+                    "message": {"role": "assistant", "content": answer_content},
+                },
+            ]
+        )
+        loop = ConversationLoop(client, self.repository)
+
+        events = list(loop.stream_turn("CUS-001", "Where are my headphones?"))
+
+        streamed_text = "".join(
+            event["content"] for event in events if event["type"] == "delta"
+        )
+        self.assertNotIn("`", streamed_text)
+        self.assertIn("Let me check your orders.", streamed_text)
+
+        segment_kinds = [
+            event["kind"] for event in events if event["type"] == "segment"
+        ]
+        self.assertEqual(segment_kinds, ["reasoning", "answer"])
+
+        tool_call = next(event for event in events if event["type"] == "tool_call")
+        self.assertEqual(tool_call["name"], "get_order_details")
+        self.assertEqual(tool_call["arguments"], {"order_id": "ORD-1042"})
+
+        tool_result = next(event for event in events if event["type"] == "tool_result")
+        self.assertTrue(tool_result["result"]["found"])
+        self.assertGreaterEqual(tool_result["elapsed_ms"], 0)
+
+        cards = next(event for event in events if event["type"] == "cards")
+        self.assertEqual(
+            [order["order_id"] for order in cards["orders"]],
+            ["ORD-1042"],
+        )
+        self.assertEqual(
+            cards["orders"][0]["items"][0]["image_url"],
+            "/products/headphones.svg",
+        )
+
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(follow_ups["suggestions"], ["A?", "B?"])
+
+        result = events[-1]
+        self.assertEqual(result["answer"], "All good.")
+        self.assertEqual(result["history"][-1]["content"], answer_content)
+
+    def test_missing_metadata_falls_back_to_touched_orders(self):
+        loop, _ = self.make_loop(
+            [
+                tool_call_message(
+                    "call-details",
+                    "get_order_details",
+                    {"order_id": "ORD-1042"},
+                ),
+                {"role": "assistant", "content": "Here is your order."},
+            ]
+        )
+
+        events = list(loop.stream_turn("CUS-001", "Show my headphones order"))
+
+        cards = next(event for event in events if event["type"] == "cards")
+        self.assertEqual(
+            [order["order_id"] for order in cards["orders"]],
+            ["ORD-1042"],
+        )
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(
+            follow_ups["suggestions"],
+            [
+                "When will ORD-1042 arrive?",
+                "Can I download the invoice for ORD-1042?",
+            ],
+        )
+        self.assertEqual(events[-1]["answer"], "Here is your order.")
+
+    def test_explicit_empty_card_list_suppresses_fallback_cards(self):
+        loop, _ = self.make_loop(
+            [
+                tool_call_message(
+                    "call-details",
+                    "get_order_details",
+                    {"order_id": "ORD-1042"},
+                ),
+                {
+                    "role": "assistant",
+                    "content": (
+                        "You have two orders.\n\n"
+                        "```json\n"
+                        '{"card_order_ids": [], "follow_ups": ["Tell me more?"]}\n'
+                        "```"
+                    ),
+                },
+            ]
+        )
+
+        events = list(loop.stream_turn("CUS-001", "How many orders do I have?"))
+
+        cards = next(event for event in events if event["type"] == "cards")
+        self.assertEqual(cards["orders"], [])
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(follow_ups["suggestions"], ["Tell me more?"])
+        self.assertEqual(events[-1]["answer"], "You have two orders.")
 
 
 if __name__ == "__main__":

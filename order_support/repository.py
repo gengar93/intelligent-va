@@ -101,6 +101,7 @@ class OrderRepository:
                     p.sku,
                     p.name AS product_name,
                     p.description,
+                    p.image_url,
                     oi.quantity,
                     oi.unit_price_minor,
                     oi.quantity * oi.unit_price_minor AS line_total_minor
@@ -156,6 +157,46 @@ class OrderRepository:
                   AND t.status IN ('queued', 'in_progress')
                 GROUP BY t.ticket_id
                 ORDER BY t.created_at ASC, t.ticket_id ASC
+                """,
+                (customer_id,),
+            ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    def get_closed_invoice_tickets(self, customer_id):
+        with self._connect() as connection:
+            customer_exists = connection.execute(
+                "SELECT 1 FROM customers WHERE customer_id = ?",
+                (customer_id,),
+            ).fetchone()
+            if customer_exists is None:
+                return None
+
+            rows = connection.execute(
+                """
+                SELECT
+                    t.ticket_id,
+                    t.order_id,
+                    t.status,
+                    t.created_at,
+                    t.updated_at,
+                    t.completed_at,
+                    t.failure_reason,
+                    o.status AS order_status,
+                    o.currency,
+                    COALESCE(SUM(oi.quantity), 0) AS item_count,
+                    COALESCE(SUM(oi.quantity * oi.unit_price_minor), 0) AS total_minor,
+                    i.invoice_number,
+                    i.document_url
+                FROM tickets AS t
+                JOIN orders AS o ON o.order_id = t.order_id
+                LEFT JOIN order_items AS oi ON oi.order_id = o.order_id
+                LEFT JOIN invoices AS i ON i.generation_ticket_id = t.ticket_id
+                WHERE o.customer_id = ?
+                  AND t.ticket_type = 'invoice_generation'
+                  AND t.status IN ('completed', 'failed', 'cancelled')
+                GROUP BY t.ticket_id
+                ORDER BY t.updated_at DESC, t.ticket_id DESC
                 """,
                 (customer_id,),
             ).fetchall()

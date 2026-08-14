@@ -7,13 +7,13 @@ INSERT INTO customers (customer_id, name, email) VALUES
     ('CUS-002', 'Meera Iyer', 'meera.iyer@example.test'),
     ('CUS-003', 'Kabir Khan', 'kabir.khan@example.test');
 
-INSERT INTO products (product_id, sku, name, description) VALUES
-    ('PROD-HEADPHONES', 'NB-H100-BLK', 'NoiseBeat H100 Headphones', 'Wireless over-ear headphones'),
-    ('PROD-COFFEE', 'BP-CM20-SLV', 'BrewPro Coffee Maker', '1.2 litre drip coffee maker'),
-    ('PROD-BACKPACK', 'UT-BP45-GRN', 'UrbanTrail Backpack', '25 litre everyday backpack'),
-    ('PROD-BOTTLE', 'SS-B750-BLU', 'SteelSip Bottle', '750 ml insulated bottle'),
-    ('PROD-MIXER', 'HC-MIX-750', 'HomeChef Mixer', '750 watt mixer grinder'),
-    ('PROD-JACKET', 'NP-RJ-L-NVY', 'NorthPeak Rain Jacket', 'Waterproof hooded rain jacket');
+INSERT INTO products (product_id, sku, name, description, image_url) VALUES
+    ('PROD-HEADPHONES', 'NB-H100-BLK', 'NoiseBeat H100 Headphones', 'Wireless over-ear headphones', '/products/headphones.svg'),
+    ('PROD-COFFEE', 'BP-CM20-SLV', 'BrewPro Coffee Maker', '1.2 litre drip coffee maker', '/products/coffee-maker.svg'),
+    ('PROD-BACKPACK', 'UT-BP45-GRN', 'UrbanTrail Backpack', '25 litre everyday backpack', '/products/backpack.svg'),
+    ('PROD-BOTTLE', 'SS-B750-BLU', 'SteelSip Bottle', '750 ml insulated bottle', '/products/bottle.svg'),
+    ('PROD-MIXER', 'HC-MIX-750', 'HomeChef Mixer', '750 watt mixer grinder', '/products/mixer.svg'),
+    ('PROD-JACKET', 'NP-RJ-L-NVY', 'NorthPeak Rain Jacket', 'Waterproof hooded rain jacket', '/products/jacket.svg');
 
 INSERT INTO orders (
     order_id,

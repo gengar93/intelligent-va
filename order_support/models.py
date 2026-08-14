@@ -19,6 +19,7 @@ class OrderItemRead(BaseModel):
     sku: str
     product_name: str
     description: str | None
+    image_url: str | None
     quantity: int
     unit_price_minor: int
     line_total_minor: int
@@ -55,6 +56,22 @@ class InvoiceTicketRead(BaseModel):
     currency: str
     item_count: int
     total_minor: int
+
+
+class ClosedInvoiceTicketRead(BaseModel):
+    ticket_id: str
+    order_id: str
+    status: Literal["completed", "failed", "cancelled"]
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None
+    failure_reason: str | None
+    order_status: Literal["processing", "shipped", "delivered", "cancelled"]
+    currency: str
+    item_count: int
+    total_minor: int
+    invoice_number: str | None
+    document_url: str | None
 
 
 class GeneratedInvoiceRead(BaseModel):

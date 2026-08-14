@@ -10,7 +10,8 @@ CREATE TABLE products (
     product_id TEXT PRIMARY KEY,
     sku TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    description TEXT
+    description TEXT,
+    image_url TEXT
 );
 
 CREATE TABLE orders (

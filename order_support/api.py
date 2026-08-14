@@ -16,6 +16,7 @@ from order_support.model_client import OpenRouterChatClient
 from order_support.models import (
     ChatRequest,
     ChatResponse,
+    ClosedInvoiceTicketRead,
     CustomerOrdersRead,
     CustomerRead,
     InvoiceGenerationRead,
@@ -102,6 +103,16 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
             raise HTTPException(status_code=404, detail="Customer not found")
         return result
 
+    @application.get(
+        "/api/customers/{customer_id}/tickets/closed",
+        response_model=list[ClosedInvoiceTicketRead],
+    )
+    def get_closed_invoice_tickets(customer_id: str):
+        result = repository.get_closed_invoice_tickets(customer_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        return result
+
     @application.post(
         "/api/customers/{customer_id}/tickets/{ticket_id}/generate-invoice",
         response_model=InvoiceGenerationRead,
@@ -184,16 +195,8 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
 
                 try:
                     for event in loop.stream_turn(customer_id, message, history=history):
-                        if event["type"] == "status":
-                            yield _encode_stream_event(
-                                {"type": "status", "message": event["message"]}
-                            )
-                            continue
-
-                        if event["type"] == "delta":
-                            yield _encode_stream_event(
-                                {"type": "delta", "content": event["content"]}
-                            )
+                        if event["type"] != "result":
+                            yield _encode_stream_event(event)
                             continue
 
                         conversations[conversation_id] = {

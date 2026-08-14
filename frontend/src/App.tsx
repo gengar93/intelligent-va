@@ -1,84 +1,55 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
-import ReactMarkdown from "react-markdown";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 import {
+  fetchClosedTickets,
   fetchCustomerOrders,
   fetchCustomers,
   fetchOpenTickets,
   generateInvoice,
   streamChatMessage,
 } from "./api";
+import { AssistantView } from "./components/AssistantView";
+import type { LiveTurn } from "./components/AssistantView";
+import { OrdersView } from "./components/OrdersView";
+import { TicketsView } from "./components/TicketsView";
+import { initials } from "./format";
+import {
+  ChatIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  MoonIcon,
+  OrdersIcon,
+  PlusIcon,
+  SunIcon,
+  TicketsIcon,
+} from "./icons";
 import type {
   ChatMessage,
+  ClosedInvoiceTicket,
   Customer,
   CustomerOrders,
-  InvoiceStatus,
   InvoiceTicket,
-  Order,
-  OrderStatus,
-  TicketStatus,
 } from "./types";
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  processing: "Processing",
-  shipped: "Shipped",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
+type ActiveTab = "orders" | "tickets" | "assistant";
+const TABS: ActiveTab[] = ["orders", "tickets", "assistant"];
+const TAB_LABELS: Record<ActiveTab, string> = {
+  orders: "Orders",
+  tickets: "Tickets",
+  assistant: "Assistant",
 };
+const AVATAR_CLASSES = ["av-1", "av-2", "av-3"];
 
-const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
-  not_requested: "Not requested",
-  queued: "Queued",
-  in_progress: "In progress",
-  available: "Available",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
-  queued: "Queued",
-  in_progress: "In progress",
-};
-
-type ActiveTab = "overview" | "tickets" | "assistant";
-const WORKSPACE_TABS: ActiveTab[] = ["overview", "tickets", "assistant"];
-
-const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br"];
-
-function formatMoney(amountMinor: number, currency: string): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(amountMinor / 100);
+function avatarClass(customerId: string, customers: Customer[]): string {
+  const index = customers.findIndex((customer) => customer.customer_id === customerId);
+  return AVATAR_CLASSES[(index >= 0 ? index : 0) % AVATAR_CLASSES.length];
 }
 
-function formatDate(value: string | null, includeTime = false): string {
-  if (!value) return "Not available";
-  const parsedValue = value.includes("T") ? value : `${value}T00:00:00`;
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(includeTime ? { hour: "numeric", minute: "2-digit" } : {}),
-  }).format(new Date(parsedValue));
-}
-
-function itemCount(order: Order): number {
-  return order.items.reduce((total, item) => total + item.quantity, 0);
-}
-
-function StatusBadge({ status }: { status: OrderStatus }) {
-  return <span className={`status status--${status}`}>{STATUS_LABELS[status]}</span>;
-}
-
-function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
-  return (
-    <span className={`status invoice-status invoice-status--${status}`}>
-      {INVOICE_STATUS_LABELS[status]}
-    </span>
-  );
+function TabIcon({ tab }: { tab: ActiveTab }) {
+  if (tab === "orders") return <OrdersIcon />;
+  if (tab === "tickets") return <TicketsIcon />;
+  return <ChatIcon />;
 }
 
 function LoadingState() {
@@ -90,368 +61,58 @@ function LoadingState() {
   );
 }
 
-function OrderList({
-  orders,
-  selectedOrderId,
-  onSelect,
-}: {
-  orders: Order[];
-  selectedOrderId: string | null;
-  onSelect: (orderId: string) => void;
-}) {
-  return (
-    <section className="panel orders-panel" aria-labelledby="orders-heading">
-      <div className="panel-header">
-        <div>
-          <span className="label">ORDER HISTORY</span>
-          <h2 id="orders-heading">Recent orders</h2>
-        </div>
-        <span className="count-label">{orders.length}</span>
-      </div>
-      <div className="order-list">
-        {orders.map((order) => (
-          <button
-            className={`order-row ${selectedOrderId === order.order_id ? "is-active" : ""}`}
-            key={order.order_id}
-            type="button"
-            onClick={() => onSelect(order.order_id)}
-            aria-pressed={selectedOrderId === order.order_id}
-          >
-            <strong>{order.order_id}</strong>
-            <StatusBadge status={order.status} />
-            <span className="order-row__date">{formatDate(order.placed_at)}</span>
-            <span className="order-row__items">
-              {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
-            </span>
-            <span className="order-row__invoice">
-              Invoice: {INVOICE_STATUS_LABELS[order.invoice_status]}
-            </span>
-            <span className="order-row__total">
-              {formatMoney(order.total_minor, order.currency)}
-            </span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function OrderDetails({ order }: { order: Order }) {
-  const deliveryLabel = order.status === "delivered" ? "Delivered" : "Estimated delivery";
-  const deliveryValue =
-    order.status === "delivered"
-      ? formatDate(order.delivered_at, true)
-      : formatDate(order.estimated_delivery_date);
-
-  return (
-    <section className="panel order-details" aria-labelledby="order-detail-heading">
-      <div className="record-header">
-        <div>
-          <span className="label">SELECTED ORDER</span>
-          <h2 id="order-detail-heading">{order.order_id}</h2>
-          <span className="muted">Placed {formatDate(order.placed_at, true)}</span>
-        </div>
-        <StatusBadge status={order.status} />
-      </div>
-
-      <dl className="fact-grid">
-        <div>
-          <dt>{deliveryLabel}</dt>
-          <dd>{deliveryValue}</dd>
-        </div>
-        <div>
-          <dt>Payment</dt>
-          <dd>{order.payment_method_display}</dd>
-        </div>
-        <div>
-          <dt>Invoice</dt>
-          <dd><InvoiceStatusBadge status={order.invoice_status} /></dd>
-        </div>
-        <div className="fact-grid__wide">
-          <dt>Delivery address</dt>
-          <dd>{order.delivery_address}</dd>
-        </div>
-      </dl>
-
-      <div className="line-items">
-        <div className="line-items__head">
-          <strong>Line items</strong>
-          <span>
-            {itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}
-          </span>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">SKU</th>
-                <th scope="col">Qty</th>
-                <th scope="col">Unit price</th>
-                <th scope="col">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item) => (
-                <tr key={item.order_item_id}>
-                  <td><strong>{item.product_name}</strong></td>
-                  <td>{item.sku}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatMoney(item.unit_price_minor, order.currency)}</td>
-                  <td>{formatMoney(item.line_total_minor, order.currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={4}>Order total</td>
-                <td>{formatMoney(order.total_minor, order.currency)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TicketsPanel({
-  tickets,
-  generatingTicketId,
-  notice,
-  error,
-  onGenerate,
-}: {
-  tickets: InvoiceTicket[];
-  generatingTicketId: string | null;
-  notice: string | null;
-  error: string | null;
-  onGenerate: (ticket: InvoiceTicket) => void;
-}) {
-  return (
-    <section className="tickets-view" aria-labelledby="tickets-heading">
-      <div className="tickets-toolbar">
-        <div>
-          <span className="label">INVOICE OPERATIONS</span>
-          <h1 id="tickets-heading">Open tickets</h1>
-        </div>
-        <span className="count-label">{tickets.length}</span>
-      </div>
-
-      {notice ? <p className="ticket-notice" role="status">{notice}</p> : null}
-      {error ? <p className="ticket-error" role="alert">{error}</p> : null}
-
-      {tickets.length === 0 ? (
-        <div className="empty-state ticket-empty">
-          <strong>No open invoice tickets</strong>
-          <span>New invoice requests from the assistant will appear here.</span>
-        </div>
-      ) : (
-        <div className="ticket-list">
-          {tickets.map((ticket) => {
-            const isGenerating = generatingTicketId === ticket.ticket_id;
-            return (
-              <article className="ticket-card" key={ticket.ticket_id}>
-                <div className="ticket-card__identity">
-                  <span className="label">{ticket.ticket_id}</span>
-                  <h2>Invoice for {ticket.order_id}</h2>
-                  <span className={`status ticket-status--${ticket.status}`}>
-                    {TICKET_STATUS_LABELS[ticket.status]}
-                  </span>
-                </div>
-                <dl className="ticket-facts">
-                  <div><dt>Requested</dt><dd>{formatDate(ticket.created_at, true)}</dd></div>
-                  <div><dt>Items</dt><dd>{ticket.item_count}</dd></div>
-                  <div>
-                    <dt>Order total</dt>
-                    <dd>{formatMoney(ticket.total_minor, ticket.currency)}</dd>
-                  </div>
-                </dl>
-                <button
-                  className="primary-button"
-                  type="button"
-                  disabled={generatingTicketId !== null}
-                  onClick={() => onGenerate(ticket)}
-                >
-                  {isGenerating ? "Generating…" : "Generate Invoice"}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function AssistantMarkdown({ children }: { children: string }) {
-  return (
-    <ReactMarkdown
-      allowedElements={MARKDOWN_ELEMENTS}
-      skipHtml
-      unwrapDisallowed
-    >
-      {children}
-    </ReactMarkdown>
-  );
-}
-
-function ChatPanel({
-  customerName,
-  messages,
-  activities,
-  draft,
-  isSending,
-  currentStatus,
-  error,
-  onDraftChange,
-  onSubmit,
-  onNewConversation,
-}: {
-  customerName: string;
-  messages: ChatMessage[];
-  activities: string[];
-  draft: string;
-  isSending: boolean;
-  currentStatus: string | null;
-  error: string | null;
-  onDraftChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onNewConversation: () => void;
-}) {
-  const endOfMessagesRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages, isSending]);
-
-  return (
-    <div className="chat-view">
-      <div className="chat-toolbar">
-        <h1>Order assistant</h1>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={onNewConversation}
-          disabled={messages.length === 0 || isSending}
-        >
-          New conversation
-        </button>
-      </div>
-
-      <div className="assistant-layout">
-        <section className="conversation" aria-label="Conversation">
-          <div className="messages" aria-live="polite">
-            {messages.length === 0 ? (
-              <div className="conversation-empty">
-                <span aria-hidden="true">SC</span>
-                <strong>Hello, {customerName}</strong>
-                <p>Type your order question below to get started.</p>
-              </div>
-            ) : null}
-
-            {messages.map((message) => (
-              <article className={`message message--${message.role}`} key={message.id}>
-                <div className="message__meta">
-                  {message.role === "user" ? "You" : "Order assistant"}
-                </div>
-                <div className="message__body">
-                  {message.role === "assistant" ? (
-                    <AssistantMarkdown>{message.content}</AssistantMarkdown>
-                  ) : (
-                    <p>{message.content}</p>
-                  )}
-                </div>
-              </article>
-            ))}
-
-            <div ref={endOfMessagesRef} />
-          </div>
-
-          {isSending ? (
-            <div className="activity-inline" role="status">
-              <span className="spinner" aria-hidden="true" />
-              <span>{currentStatus ?? "Understanding your question…"}</span>
-            </div>
-          ) : null}
-
-          {error ? <p className="chat-error" role="alert">{error}</p> : null}
-
-          <form className="composer" onSubmit={onSubmit}>
-            <label className="sr-only" htmlFor="chat-message">Ask about an order</label>
-            <textarea
-              id="chat-message"
-              rows={2}
-              value={draft}
-              onChange={(event) => onDraftChange(event.target.value)}
-              placeholder="Ask about order status, items, delivery, or payment…"
-              disabled={isSending}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-            <div className="composer__footer">
-              <button type="submit" disabled={isSending || !draft.trim()}>
-                {isSending ? "Working" : "Send"} <kbd>↵</kbd>
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <aside className="activity-panel" aria-labelledby="activity-title">
-          <header>
-            <span className="label">CURRENT REQUEST</span>
-            <h2 id="activity-title">Activity</h2>
-          </header>
-          <ol className="activity-log">
-            {activities.length === 0 ? (
-              <li>
-                <span>·</span>
-                <div><strong>No active request</strong><small>Submit a question to begin</small></div>
-              </li>
-            ) : activities.map((activity, index) => {
-              const active = isSending && index === activities.length - 1;
-              return (
-                <li className={active ? "is-active" : "is-complete"} key={`${activity}-${index}`}>
-                  <span>{active ? "•" : "✓"}</span>
-                  <div>
-                    <strong>{activity.replace(/…$/, "")}</strong>
-                    <small>{active ? "In progress" : "Completed"}</small>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerOrders, setCustomerOrders] = useState<CustomerOrders | null>(null);
   const [openTickets, setOpenTickets] = useState<InvoiceTicket[]>([]);
+  const [closedTickets, setClosedTickets] = useState<ClosedInvoiceTicket[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("orders");
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatStatus, setChatStatus] = useState<string | null>(null);
-  const [chatActivities, setChatActivities] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
-  const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
-  const [ticketNotice, setTicketNotice] = useState<string | null>(null);
-  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
+  const liveTurnRef = useRef<LiveTurn | null>(null);
   const chatRequestRef = useRef<AbortController | null>(null);
+
+  const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (!switcherOpen) return;
+    function handleClick(event: MouseEvent) {
+      if (!switcherRef.current?.contains(event.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    }
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [switcherOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -480,10 +141,12 @@ export default function App() {
     Promise.all([
       fetchCustomerOrders(selectedCustomerId, controller.signal),
       fetchOpenTickets(selectedCustomerId, controller.signal),
+      fetchClosedTickets(selectedCustomerId, controller.signal),
     ])
-      .then(([ordersResult, ticketsResult]) => {
+      .then(([ordersResult, ticketsResult, closedResult]) => {
         setCustomerOrders(ordersResult);
         setOpenTickets(ticketsResult);
+        setClosedTickets(closedResult);
         setSelectedOrderId(ordersResult.orders[0]?.order_id ?? null);
       })
       .catch((requestError: unknown) => {
@@ -497,16 +160,23 @@ export default function App() {
     return () => controller.abort();
   }, [selectedCustomerId]);
 
-  const selectedOrder = useMemo(
-    () => customerOrders?.orders.find((order) => order.order_id === selectedOrderId) ?? null,
-    [customerOrders, selectedOrderId],
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => customer.customer_id === selectedCustomerId) ?? null,
+    [customers, selectedCustomerId],
   );
 
-  const openCount = customerOrders?.orders.filter((order) =>
-    (["processing", "shipped"] as OrderStatus[]).includes(order.status),
-  ).length ?? 0;
-  const totalValue = customerOrders?.orders.reduce((sum, order) => sum + order.total_minor, 0) ?? 0;
-  const currency = customerOrders?.orders[0]?.currency ?? "INR";
+  const updateLive = useCallback((updater: (turn: LiveTurn) => LiveTurn) => {
+    const current = liveTurnRef.current;
+    if (!current) return;
+    const next = updater(current);
+    liveTurnRef.current = next;
+    setLiveTurn(next);
+  }, []);
+
+  function clearLiveTurn() {
+    liveTurnRef.current = null;
+    setLiveTurn(null);
+  }
 
   function resetConversation() {
     setChatMessages([]);
@@ -514,20 +184,22 @@ export default function App() {
     setChatDraft("");
     setChatError(null);
     setChatStatus(null);
-    setChatActivities([]);
     setIsSendingChat(false);
+    clearLiveTurn();
   }
 
   function handleCustomerChange(customerId: string) {
+    if (customerId === selectedCustomerId || generatingTicketId !== null) return;
     chatRequestRef.current?.abort();
+    chatRequestRef.current = null;
     setSelectedCustomerId(customerId);
     setIsLoadingOrders(true);
     setError(null);
     setCustomerOrders(null);
     setOpenTickets([]);
+    setClosedTickets([]);
     setSelectedOrderId(null);
     setGeneratingTicketId(null);
-    setTicketNotice(null);
     setTicketError(null);
     resetConversation();
   }
@@ -535,33 +207,40 @@ export default function App() {
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const currentIndex = WORKSPACE_TABS.indexOf(activeTab);
+    const currentIndex = TABS.indexOf(activeTab);
     const offset = event.key === "ArrowRight" ? 1 : -1;
-    const nextTab = WORKSPACE_TABS[
-      (currentIndex + offset + WORKSPACE_TABS.length) % WORKSPACE_TABS.length
-    ];
+    const nextTab = TABS[(currentIndex + offset + TABS.length) % TABS.length];
     setActiveTab(nextTab);
     document.getElementById(`${nextTab}-tab`)?.focus();
+  }
+
+  function handleViewOrder(orderId: string) {
+    setSelectedOrderId(orderId);
+    setActiveTab("orders");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function refreshWorkspace(signal?: AbortSignal) {
+    const [ordersResult, ticketsResult, closedResult] = await Promise.all([
+      fetchCustomerOrders(selectedCustomerId, signal),
+      fetchOpenTickets(selectedCustomerId, signal),
+      fetchClosedTickets(selectedCustomerId, signal),
+    ]);
+    setCustomerOrders(ordersResult);
+    setOpenTickets(ticketsResult);
+    setClosedTickets(closedResult);
   }
 
   async function handleGenerateInvoice(ticket: InvoiceTicket) {
     if (!selectedCustomerId || generatingTicketId) return;
     setGeneratingTicketId(ticket.ticket_id);
-    setTicketNotice(null);
     setTicketError(null);
 
     try {
       const result = await generateInvoice(selectedCustomerId, ticket.ticket_id);
-      setTicketNotice(
-        `${result.invoice.invoice_number} generated for ${result.invoice.order_id}.`,
-      );
+      showToast(`${result.invoice.invoice_number} generated for ${result.invoice.order_id}`);
       try {
-        const [ordersResult, ticketsResult] = await Promise.all([
-          fetchCustomerOrders(selectedCustomerId),
-          fetchOpenTickets(selectedCustomerId),
-        ]);
-        setCustomerOrders(ordersResult);
-        setOpenTickets(ticketsResult);
+        await refreshWorkspace();
       } catch {
         setTicketError("The invoice was generated, but the workspace could not be refreshed.");
       }
@@ -572,75 +251,82 @@ export default function App() {
     }
   }
 
-  async function handleChatSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const message = chatDraft.trim();
-    if (!message || !selectedCustomerId || isSendingChat) return;
+  async function sendChatMessage(message: string) {
+    const trimmed = message.trim();
+    if (!trimmed || !selectedCustomerId || isSendingChat) return;
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: message,
+      content: trimmed,
     };
-    const assistantMessageId = crypto.randomUUID();
     const controller = new AbortController();
     chatRequestRef.current = controller;
     setChatMessages((current) => [...current, userMessage]);
     setChatDraft("");
     setChatError(null);
-    setChatActivities([]);
     setChatStatus("Understanding your question…");
     setIsSendingChat(true);
+    const initialTurn: LiveTurn = {
+      steps: [],
+      buffer: "",
+      answer: null,
+      cards: [],
+      followUps: [],
+    };
+    liveTurnRef.current = initialTurn;
+    setLiveTurn(initialTurn);
 
     try {
       const response = await streamChatMessage(
         selectedCustomerId,
-        message,
+        trimmed,
         conversationId,
-        (status) => {
-          setChatStatus(status);
-          setChatActivities((current) =>
-            current[current.length - 1] === status ? current : [...current, status],
-          );
-        },
-        (content) => {
-          setChatMessages((current) => {
-            const existing = current.find((item) => item.id === assistantMessageId);
-            if (!existing) {
-              return [
-                ...current,
-                { id: assistantMessageId, role: "assistant", content },
-              ];
-            }
-            return current.map((item) =>
-              item.id === assistantMessageId
-                ? { ...item, content: item.content + content }
-                : item,
-            );
-          });
+        {
+          onStatus: (status) => setChatStatus(status),
+          onDelta: (content) =>
+            updateLive((turn) => ({ ...turn, buffer: turn.buffer + content })),
+          onSegment: (kind) =>
+            updateLive((turn) => {
+              const text = turn.buffer;
+              if (!text.trim()) return { ...turn, buffer: "" };
+              if (kind === "reasoning") {
+                return {
+                  ...turn,
+                  buffer: "",
+                  steps: [...turn.steps, { kind: "reasoning", text: text.trim() }],
+                };
+              }
+              return { ...turn, buffer: "", answer: text.trim() };
+            }),
+          onToolCall: (step) =>
+            updateLive((turn) => ({ ...turn, steps: [...turn.steps, step] })),
+          onToolResult: (step) =>
+            updateLive((turn) => ({ ...turn, steps: [...turn.steps, step] })),
+          onCards: (orders) => updateLive((turn) => ({ ...turn, cards: orders })),
+          onFollowUps: (suggestions) =>
+            updateLive((turn) => ({ ...turn, followUps: suggestions })),
         },
         controller.signal,
       );
+
+      const finishedTurn = liveTurnRef.current;
       setConversationId(response.conversation_id);
-      setChatMessages((current) => {
-        const existing = current.find((item) => item.id === assistantMessageId);
-        if (!existing) {
-          return [
-            ...current,
-            { id: assistantMessageId, role: "assistant", content: response.answer },
-          ];
-        }
-        return current.map((item) =>
-          item.id === assistantMessageId ? { ...item, content: response.answer } : item,
-        );
-      });
+      setChatMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.answer,
+          reasoning: finishedTurn?.steps ?? [],
+          cards: finishedTurn?.cards ?? [],
+          followUps: finishedTurn?.followUps ?? [],
+        },
+      ]);
+      clearLiveTurn();
+
       try {
-        const [ordersResult, ticketsResult] = await Promise.all([
-          fetchCustomerOrders(selectedCustomerId, controller.signal),
-          fetchOpenTickets(selectedCustomerId, controller.signal),
-        ]);
-        setCustomerOrders(ordersResult);
-        setOpenTickets(ticketsResult);
+        await refreshWorkspace(controller.signal);
       } catch (refreshError) {
         if (refreshError instanceof Error && refreshError.name !== "AbortError") {
           setError("The assistant responded, but the customer record could not be refreshed.");
@@ -648,156 +334,210 @@ export default function App() {
       }
     } catch (requestError) {
       if (requestError instanceof Error && requestError.name !== "AbortError") {
-        setChatMessages((current) =>
-          current.filter(
-            (item) => item.id !== userMessage.id && item.id !== assistantMessageId,
-          ),
-        );
-        setChatActivities([]);
+        setChatMessages((current) => current.filter((item) => item.id !== userMessage.id));
+        clearLiveTurn();
         setChatError("The assistant couldn’t respond. Please try sending your message again.");
-        setChatDraft(message);
+        setChatDraft(trimmed);
       }
     } finally {
       if (chatRequestRef.current === controller) {
         chatRequestRef.current = null;
         setIsSendingChat(false);
         setChatStatus(null);
+        if (liveTurnRef.current) clearLiveTurn();
       }
     }
   }
 
+  const isLoading = isLoadingCustomers || isLoadingOrders;
+
   return (
-    <div className="app-shell">
+    <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <span className="brand__mark" aria-hidden="true">SC</span>
-          <strong>Support Console</strong>
-        </div>
-        <div className="topbar__context">
-          <label htmlFor="customer-select">Customer</label>
-          <select
-            id="customer-select"
-            aria-label="Select customer"
-            value={selectedCustomerId}
-            onChange={(event) => handleCustomerChange(event.target.value)}
-            disabled={
-              isLoadingCustomers || customers.length === 0 || generatingTicketId !== null
-            }
-          >
-            {customers.map((customer) => (
-              <option key={customer.customer_id} value={customer.customer_id}>
-                {customer.customer_id}
-              </option>
+        <div className="topbar-inner">
+          <div className="brand">
+            <div className="brand-name">Support Console</div>
+          </div>
+
+          <nav className="tabs" role="tablist" aria-label="Console sections">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                id={`${tab}-tab`}
+                type="button"
+                className="tab"
+                role="tab"
+                aria-selected={activeTab === tab}
+                aria-controls={`view-${tab}`}
+                tabIndex={activeTab === tab ? 0 : -1}
+                onClick={() => setActiveTab(tab)}
+                onKeyDown={handleTabKeyDown}
+              >
+                <TabIcon tab={tab} />
+                <span className="lbl">{TAB_LABELS[tab]}</span>
+                {tab === "tickets" && openTickets.length > 0 ? (
+                  <span className="count">{openTickets.length}</span>
+                ) : null}
+              </button>
             ))}
-          </select>
+          </nav>
+
+          <div className="topbar-spacer" />
+
+          {activeTab === "assistant" ? (
+            <button
+              type="button"
+              className="icon-btn"
+              title="New conversation"
+              aria-label="New conversation"
+              onClick={resetConversation}
+              disabled={(chatMessages.length === 0 && !liveTurn) || isSendingChat}
+            >
+              <PlusIcon />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+          >
+            {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+          </button>
+
+          <div className="switcher" ref={switcherRef}>
+            <button
+              type="button"
+              className="switcher-btn"
+              aria-haspopup="true"
+              aria-expanded={switcherOpen}
+              disabled={isLoadingCustomers || customers.length === 0}
+              onClick={() => setSwitcherOpen((open) => !open)}
+            >
+              <span
+                className={`avatar ${avatarClass(selectedCustomerId, customers)}`}
+                aria-hidden="true"
+              >
+                {selectedCustomer ? initials(selectedCustomer.name) : "··"}
+              </span>
+              <span className="switcher-meta">
+                <span className="nm">{selectedCustomer?.name ?? "Loading…"}</span>
+                <span className="id">{selectedCustomer?.customer_id ?? ""}</span>
+              </span>
+              <span className="chev" aria-hidden="true">
+                <ChevronDownIcon />
+              </span>
+            </button>
+            {switcherOpen ? (
+              <div className="menu" role="menu" aria-label="Switch customer">
+                <div className="menu-label eyebrow">Viewing as customer</div>
+                {customers.map((customer) => (
+                  <button
+                    key={customer.customer_id}
+                    type="button"
+                    role="menuitem"
+                    className="menu-item"
+                    aria-current={customer.customer_id === selectedCustomerId}
+                    disabled={generatingTicketId !== null}
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      handleCustomerChange(customer.customer_id);
+                    }}
+                  >
+                    <span
+                      className={`avatar ${avatarClass(customer.customer_id, customers)}`}
+                      aria-hidden="true"
+                    >
+                      {initials(customer.name)}
+                    </span>
+                    <span>
+                      <span className="nm">{customer.name}</span>
+                      <span className="id">{customer.customer_id} · {customer.email}</span>
+                    </span>
+                    <span className="tick" aria-hidden="true">
+                      <CheckIcon />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      {customerOrders ? (
-        <div className="tabs" role="tablist" aria-label="Customer workspace">
-          <button
-            id="overview-tab"
-            className={`tab ${activeTab === "overview" ? "is-active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "overview"}
-            aria-controls="overview-panel"
-            tabIndex={activeTab === "overview" ? 0 : -1}
-            onClick={() => setActiveTab("overview")}
-            onKeyDown={handleTabKeyDown}
-          >Overview</button>
-          <button
-            id="tickets-tab"
-            className={`tab ${activeTab === "tickets" ? "is-active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "tickets"}
-            aria-controls="tickets-panel"
-            tabIndex={activeTab === "tickets" ? 0 : -1}
-            onClick={() => setActiveTab("tickets")}
-            onKeyDown={handleTabKeyDown}
-          >Tickets{openTickets.length > 0 ? ` (${openTickets.length})` : ""}</button>
-          <button
-            id="assistant-tab"
-            className={`tab ${activeTab === "assistant" ? "is-active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "assistant"}
-            aria-controls="assistant-panel"
-            tabIndex={activeTab === "assistant" ? 0 : -1}
-            onClick={() => setActiveTab("assistant")}
-            onKeyDown={handleTabKeyDown}
-          >Assistant</button>
-        </div>
-      ) : null}
-
       <main>
         {error ? (
-          <div className="error-state" role="alert">
-            <strong>Unable to load data</strong><span>{error}</span>
+          <div className="inline-error page-error" role="alert">
+            {error}
           </div>
         ) : null}
-        {isLoadingCustomers || isLoadingOrders ? <LoadingState /> : null}
+        {isLoading ? <LoadingState /> : null}
 
-        {!isLoadingCustomers && !isLoadingOrders && customerOrders ? (
-          activeTab === "overview" ? (
-            <section id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
-              <div className="customer-strip">
-                <div>
-                  <span className="label">CUSTOMER RECORD</span>
-                  <h1>{customerOrders.customer.name}</h1>
-                  <a href={`mailto:${customerOrders.customer.email}`}>
-                    {customerOrders.customer.email}
-                  </a>
-                </div>
-                <dl className="metrics">
-                  <div><dt>Orders</dt><dd>{customerOrders.orders.length}</dd></div>
-                  <div><dt>Open</dt><dd>{openCount}</dd></div>
-                  <div><dt>Total value</dt><dd>{formatMoney(totalValue, currency)}</dd></div>
-                </dl>
-              </div>
-
-              {customerOrders.orders.length > 0 && selectedOrder ? (
-                <div className="workspace-grid">
-                  <OrderList
-                    orders={customerOrders.orders}
-                    selectedOrderId={selectedOrderId}
-                    onSelect={setSelectedOrderId}
-                  />
-                  <OrderDetails order={selectedOrder} />
-                </div>
-              ) : (
-                <div className="empty-state"><strong>No orders yet</strong></div>
-              )}
+        {!isLoading && customerOrders && selectedCustomer ? (
+          <>
+            <section
+              className="view"
+              id="view-orders"
+              role="tabpanel"
+              aria-labelledby="orders-tab"
+              hidden={activeTab !== "orders"}
+            >
+              <OrdersView
+                customerOrders={customerOrders}
+                selectedOrderId={selectedOrderId}
+                onSelectOrder={setSelectedOrderId}
+                onGoToTickets={() => setActiveTab("tickets")}
+                onGoToAssistant={() => setActiveTab("assistant")}
+              />
             </section>
-          ) : activeTab === "tickets" ? (
-            <section id="tickets-panel" role="tabpanel" aria-labelledby="tickets-tab">
-              <TicketsPanel
+            <section
+              className="view"
+              id="view-tickets"
+              role="tabpanel"
+              aria-labelledby="tickets-tab"
+              hidden={activeTab !== "tickets"}
+            >
+              <TicketsView
+                customerName={customerOrders.customer.name}
                 tickets={openTickets}
+                closedTickets={closedTickets}
                 generatingTicketId={generatingTicketId}
-                notice={ticketNotice}
                 error={ticketError}
                 onGenerate={handleGenerateInvoice}
               />
             </section>
-          ) : (
-            <section id="assistant-panel" role="tabpanel" aria-labelledby="assistant-tab">
-              <ChatPanel
-                customerName={customerOrders.customer.name}
+            <section
+              className="view"
+              id="view-assistant"
+              role="tabpanel"
+              aria-labelledby="assistant-tab"
+              hidden={activeTab !== "assistant"}
+            >
+              <AssistantView
+                customer={customerOrders.customer}
                 messages={chatMessages}
-                activities={chatActivities}
+                liveTurn={liveTurn}
                 draft={chatDraft}
                 isSending={isSendingChat}
                 currentStatus={chatStatus}
                 error={chatError}
                 onDraftChange={setChatDraft}
-                onSubmit={handleChatSubmit}
-                onNewConversation={resetConversation}
+                onSend={sendChatMessage}
+                onViewOrder={handleViewOrder}
+                onFollowUp={sendChatMessage}
               />
             </section>
-          )
+          </>
         ) : null}
       </main>
+
+      <div className={`toast ${toast ? "show" : ""}`} role="status" aria-live="polite">
+        <div className="tick-ico" aria-hidden="true">
+          <CheckIcon size={13} strokeWidth={2.6} />
+        </div>
+        <span>{toast ?? ""}</span>
+      </div>
     </div>
   );
 }

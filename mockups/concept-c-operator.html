@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperture — Order Support Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   APERTURE OPERATOR CONSOLE — Focused Dark Operator Console
+   Accent: luminous cyan-teal. Backgrounds: deep ink charcoal.
+   ============================================================ */
+:root{
+  --ink-900:#0a0d12;      /* app base */
+  --ink-850:#0d1117;      /* rail / deepest surface */
+  --ink-800:#11161e;      /* panel */
+  --ink-750:#141b24;      /* elevated card */
+  --ink-700:#18212c;      /* hovered card */
+  --ink-650:#1e2833;      /* input / node */
+  --line:#232e3a;         /* 1px separators */
+  --line-soft:#1a232d;
+
+  --txt-100:#eef4fa;      /* primary text */
+  --txt-300:#b7c4d1;      /* secondary */
+  --txt-500:#7d8ea0;      /* muted */
+  --txt-700:#54636f;      /* faint / disabled */
+
+  --acc:#2ee6c5;          /* cyan-teal accent */
+  --acc-dim:#17a892;
+  --acc-glow:rgba(46,230,197,.16);
+  --acc-line:rgba(46,230,197,.42);
+
+  --amber:#f2b34a;        /* processing / queued */
+  --amber-glow:rgba(242,179,74,.14);
+  --green:#43d391;        /* delivered / available */
+  --green-glow:rgba(67,211,145,.14);
+  --red:#f2685f;          /* cancelled */
+  --red-glow:rgba(242,104,95,.14);
+  --violet:#8b93ff;       /* shipped / in-transit */
+  --violet-glow:rgba(139,147,255,.14);
+
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow-card:0 1px 0 rgba(255,255,255,.02) inset, 0 8px 24px -12px rgba(0,0,0,.7);
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--sans);
+  background:
+    radial-gradient(1200px 600px at 82% -10%, rgba(46,230,197,.06), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(139,147,255,.05), transparent 55%),
+    var(--ink-900);
+  color:var(--txt-100);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--mono);font-feature-settings:"tnum" 1;letter-spacing:-.01em}
+.tnum{font-variant-numeric:tabular-nums}
+button{font-family:inherit}
+::selection{background:var(--acc-glow);color:#fff}
+
+/* scrollbars */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#22303c;border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:#2c3d4b;background-clip:padding-box}
+
+/* ============================================================ TOP BAR */
+.topbar{
+  height:58px;display:flex;align-items:center;gap:18px;
+  padding:0 20px;
+  background:linear-gradient(180deg,rgba(20,27,36,.92),rgba(13,17,23,.92));
+  border-bottom:1px solid var(--line);
+  backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:11px;padding-right:20px;border-right:1px solid var(--line)}
+.brand .glyph{
+  width:30px;height:30px;border-radius:8px;flex:none;
+  background:radial-gradient(circle at 32% 28%, #35ffdd, var(--acc-dim));
+  box-shadow:0 0 0 1px rgba(46,230,197,.35), 0 0 18px -2px var(--acc-glow);
+  display:grid;place-items:center;
+}
+.brand .name{font-weight:700;letter-spacing:.2px;font-size:15px;white-space:nowrap}
+.brand .name small{color:var(--txt-500);font-weight:500;font-size:11px;letter-spacing:.3px;display:block;margin-top:-3px;white-space:nowrap}
+@media(max-width:1080px){.brand .name small{display:none}}
+
+/* nav */
+.nav{display:flex;gap:4px;background:var(--ink-850);border:1px solid var(--line);padding:4px;border-radius:10px}
+.nav button{
+  display:flex;align-items:center;gap:8px;
+  border:0;background:transparent;color:var(--txt-500);
+  padding:7px 14px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;
+  transition:.16s;
+}
+.nav button svg{width:15px;height:15px}
+.nav button:hover{color:var(--txt-100);background:var(--ink-750)}
+.nav button.active{background:var(--ink-700);color:var(--txt-100);box-shadow:inset 0 0 0 1px var(--line)}
+.nav button.active svg{color:var(--acc)}
+
+.spacer{flex:1}
+
+/* live pill */
+.live{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--txt-500);font-family:var(--mono);
+  padding:6px 11px;border:1px solid var(--line);border-radius:20px;background:var(--ink-850)}
+.live .dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+
+/* customer switcher */
+.cust{position:relative}
+.cust-btn{
+  display:flex;align-items:center;gap:11px;cursor:pointer;
+  background:var(--ink-850);border:1px solid var(--line);border-radius:10px;
+  padding:6px 10px 6px 7px;color:var(--txt-100);transition:.16s;
+}
+.cust-btn:hover{border-color:#2c3a48;background:var(--ink-800)}
+.avatar{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-weight:600;font-size:12px;color:#0a0d12;letter-spacing:.3px}
+.cust-meta{text-align:left;line-height:1.25}
+.cust-meta .cn{font-size:13px;font-weight:600}
+.cust-meta .cid{font-size:11px;color:var(--txt-500);font-family:var(--mono)}
+.cust-btn .chev{color:var(--txt-500);width:15px;height:15px}
+.cust-menu{
+  position:absolute;right:0;top:calc(100% + 8px);width:290px;z-index:60;
+  background:var(--ink-800);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 20px 50px -18px rgba(0,0,0,.8);padding:6px;
+  display:none;
+}
+.cust-menu.open{display:block;animation:drop .16s ease}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.cust-menu .head{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--txt-700);padding:8px 10px 6px}
+.cust-item{display:flex;align-items:center;gap:11px;padding:8px;border-radius:8px;cursor:pointer;transition:.14s}
+.cust-item:hover{background:var(--ink-700)}
+.cust-item.sel{background:var(--ink-750);box-shadow:inset 0 0 0 1px var(--acc-line)}
+.cust-item .cn{font-size:13px;font-weight:600}
+.cust-item .sub{font-size:11px;color:var(--txt-500);font-family:var(--mono)}
+.cust-item .tick{margin-left:auto;color:var(--acc);width:16px;height:16px;opacity:0}
+.cust-item.sel .tick{opacity:1}
+
+/* ============================================================ LAYOUT */
+.stage{max-width:1400px;margin:0 auto;padding:22px}
+.view{display:none;animation:fade .3s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:20px;flex-wrap:wrap}
+.page-head h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
+.page-head .sub{color:var(--txt-500);font-size:13px;margin-top:3px}
+.page-head .sub b{color:var(--txt-300);font-weight:600}
+
+/* KPI strip */
+.kpis{display:flex;gap:10px;flex-wrap:wrap}
+.kpi{background:var(--ink-800);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:104px}
+.kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--txt-700)}
+.kpi .v{font-size:19px;font-weight:700;margin-top:4px;font-family:var(--mono)}
+.kpi .v.acc{color:var(--acc)}
+.kpi .v.amber{color:var(--amber)}
+.kpi .v.green{color:var(--green)}
+
+/* ============================================================ ORDERS */
+.orders-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:18px}
+.panel{background:linear-gradient(180deg,var(--ink-800),var(--ink-850));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-card)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.panel-head .t{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--txt-500);font-weight:600;display:flex;align-items:center;gap:8px}
+.panel-head .t svg{width:15px;height:15px;color:var(--txt-500)}
+.count-badge{font-family:var(--mono);font-size:11px;color:var(--txt-500);background:var(--ink-750);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+
+/* order row list */
+.olist{padding:8px}
+.orow{
+  display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+  padding:12px 12px;border-radius:10px;cursor:pointer;transition:.15s;
+  border:1px solid transparent;
+}
+.orow:hover{background:var(--ink-750);border-color:var(--line)}
+.orow.sel{background:var(--ink-750);border-color:var(--acc-line);box-shadow:0 0 0 1px var(--acc-line), 0 0 24px -14px var(--acc)}
+.orow .sdot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 3px rgba(255,255,255,.02)}
+.orow .oid{font-family:var(--mono);font-weight:600;font-size:13px}
+.orow .oitems{color:var(--txt-500);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+.orow .oright{text-align:right}
+.orow .oamt{font-family:var(--mono);font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
+.orow .odate{color:var(--txt-700);font-size:11px;margin-top:2px;font-family:var(--mono)}
+
+/* status chip */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+  padding:3px 9px;border-radius:20px;letter-spacing:.02em;line-height:1.4;white-space:nowrap}
+.chip .cd{width:6px;height:6px;border-radius:50%}
+.chip.shipped{color:var(--violet);background:var(--violet-glow);box-shadow:inset 0 0 0 1px rgba(139,147,255,.3)}
+.chip.shipped .cd{background:var(--violet)}
+.chip.processing{color:var(--amber);background:var(--amber-glow);box-shadow:inset 0 0 0 1px rgba(242,179,74,.3)}
+.chip.processing .cd{background:var(--amber);animation:pulse 1.6s infinite}
+.chip.delivered{color:var(--green);background:var(--green-glow);box-shadow:inset 0 0 0 1px rgba(67,211,145,.3)}
+.chip.delivered .cd{background:var(--green)}
+.chip.cancelled{color:var(--red);background:var(--red-glow);box-shadow:inset 0 0 0 1px rgba(242,104,95,.3)}
+.chip.cancelled .cd{background:var(--red)}
+
+/* invoice tag */
+.inv{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;font-family:var(--mono);
+  padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+.inv svg{width:12px;height:12px}
+.inv.available{color:var(--green);border-color:rgba(67,211,145,.28)}
+.inv.queued{color:var(--amber);border-color:rgba(242,179,74,.28)}
+.inv.none{color:var(--txt-700)}
+
+/* order detail */
+.detail{padding:18px}
+.detail-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.detail-top .oid{font-family:var(--mono);font-size:18px;font-weight:600}
+.detail-top .placed{color:var(--txt-500);font-size:12px;margin-top:4px}
+
+/* stepper */
+.stepper{display:flex;align-items:center;margin:18px 0 22px;padding:16px;background:var(--ink-850);border:1px solid var(--line-soft);border-radius:10px}
+.step{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;position:relative;z-index:2}
+.step .node{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--ink-700);border:1.5px solid var(--line);color:var(--txt-700);transition:.2s}
+.step .node svg{width:13px;height:13px}
+.step .lbl{font-size:10.5px;color:var(--txt-700);letter-spacing:.03em;font-weight:500}
+.step.done .node{background:var(--acc);border-color:var(--acc);color:#04120f;box-shadow:0 0 14px -2px var(--acc-glow)}
+.step.done .lbl{color:var(--txt-300)}
+.step.current .node{background:var(--ink-750);border-color:var(--acc);color:var(--acc);box-shadow:0 0 0 4px var(--acc-glow)}
+.step.current .lbl{color:var(--acc)}
+.step-line{height:1.5px;flex:1;background:var(--line);margin-top:-24px;position:relative;z-index:1}
+.step-line.done{background:var(--acc)}
+.step.cancelled-node .node{background:var(--red-glow);border-color:var(--red);color:var(--red)}
+.step.cancelled-node .lbl{color:var(--red)}
+
+/* detail rows */
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 22px;margin-bottom:18px}
+.dfield .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--txt-700);margin-bottom:4px}
+.dfield .v{font-size:13px;color:var(--txt-100)}
+.dfield .v.mono{font-family:var(--mono)}
+
+.items-tbl{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.items-tbl .ir{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+.items-tbl .ir:last-child{border-bottom:0}
+.items-tbl .ir.total{background:var(--ink-850);font-weight:600}
+.items-tbl .qty{font-family:var(--mono);color:var(--acc);font-size:12px;background:var(--acc-glow);padding:2px 8px;border-radius:6px}
+.items-tbl .iname{font-size:13px}
+.items-tbl .isku{font-family:var(--mono);font-size:11px;color:var(--txt-500);margin-top:2px}
+.items-tbl .iprice{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+
+.detail-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;transition:.16s;border:1px solid var(--line);background:var(--ink-750);color:var(--txt-100)}
+.btn svg{width:15px;height:15px}
+.btn:hover{background:var(--ink-700);border-color:#2c3a48}
+.btn.primary{background:linear-gradient(180deg,#33f0cf,var(--acc-dim));color:#04120f;border-color:transparent;box-shadow:0 0 20px -6px var(--acc-glow)}
+.btn.primary:hover{box-shadow:0 0 26px -4px var(--acc-glow);filter:brightness(1.05)}
+.btn.ghost{background:transparent}
+.btn.ghost:hover{background:var(--ink-750)}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ============================================================ TICKETS */
+.tickets-wrap{display:grid;gap:14px;max-width:820px}
+.ticket{background:linear-gradient(180deg,var(--ink-800),var(--ink-850));border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-card);display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center}
+.ticket .ledge{width:3px;align-self:stretch;border-radius:3px;background:var(--amber);box-shadow:0 0 12px var(--amber-glow)}
+.ticket .tid{font-family:var(--mono);font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px}
+.ticket .tmeta{color:var(--txt-500);font-size:12px;margin-top:6px;display:flex;gap:16px;flex-wrap:wrap}
+.ticket .tmeta span{display:flex;align-items:center;gap:6px}
+.ticket .tmeta .mono{font-family:var(--mono);color:var(--txt-300)}
+.ticket-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);z-index:80;
+  display:flex;align-items:center;gap:12px;background:var(--ink-750);border:1px solid var(--acc-line);
+  border-radius:11px;padding:13px 18px;box-shadow:0 20px 50px -14px rgba(0,0,0,.8), 0 0 30px -10px var(--acc-glow);
+  opacity:0;pointer-events:none;transition:.3s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast .ti{width:30px;height:30px;border-radius:8px;background:var(--acc-glow);display:grid;place-items:center;color:var(--acc);flex:none}
+.toast .tt{font-weight:600;font-size:13px}
+.toast .ts{font-size:12px;color:var(--txt-500);font-family:var(--mono)}
+
+/* ============================================================ ASSISTANT */
+.assist-grid{display:grid;grid-template-columns:1fr 460px;gap:18px;align-items:start}
+@media(max-width:1120px){.assist-grid{grid-template-columns:1fr}}
+
+.chat{background:linear-gradient(180deg,var(--ink-800),var(--ink-850));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-card);display:flex;flex-direction:column;min-height:620px}
+.chat-head{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.chat-head . av{width:32px;height:32px;border-radius:9px;background:radial-gradient(circle at 32% 28%,#35ffdd,var(--acc-dim));display:grid;place-items:center;color:#04120f;flex:none}
+.chat-head .ct{font-weight:600;font-size:14px}
+.chat-head .cs{font-size:11.5px;color:var(--txt-500);display:flex;align-items:center;gap:6px}
+.chat-head .cs .d{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+.chat-body{padding:20px 18px;display:flex;flex-direction:column;gap:18px;flex:1;overflow-y:auto}
+
+.msg{display:flex;gap:12px;max-width:92%}
+.msg .m-av{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:11px;font-weight:600}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.msg.user .m-av{background:#243441;color:var(--txt-300)}
+.msg.bot .m-av{background:var(--acc-glow);color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc-line)}
+.bubble{padding:12px 15px;border-radius:12px;font-size:13.5px;line-height:1.6}
+.msg.user .bubble{background:#1c2a35;border:1px solid #263441;border-top-right-radius:4px;color:var(--txt-100)}
+.msg.bot .bubble{background:var(--ink-750);border:1px solid var(--line);border-top-left-radius:4px;color:var(--txt-300)}
+.msg.bot .bubble b{color:var(--txt-100);font-weight:600}
+.msg-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* order card in chat */
+.ocard{background:linear-gradient(180deg,var(--ink-700),var(--ink-750));border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 20px -12px rgba(0,0,0,.6);max-width:400px}
+.ocard-top{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 15px 12px;border-bottom:1px solid var(--line-soft);position:relative}
+.ocard-top::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--amber);box-shadow:0 0 10px var(--amber-glow)}
+.ocard .oid{font-family:var(--mono);font-weight:600;font-size:14px}
+.ocard .oplaced{font-size:11px;color:var(--txt-500);margin-top:3px;font-family:var(--mono)}
+.ocard-body{padding:12px 15px;display:flex;flex-direction:column;gap:11px}
+.ocard-item{display:flex;align-items:center;gap:10px}
+.ocard-item .thumb{width:34px;height:34px;border-radius:8px;background:var(--ink-850);border:1px solid var(--line);display:grid;place-items:center;color:var(--txt-500);flex:none}
+.ocard-item .in{font-size:12.5px;font-weight:500}
+.ocard-item .isk{font-family:var(--mono);font-size:10.5px;color:var(--txt-500)}
+.ocard-item .ip{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.ocard-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding:11px 15px;border-top:1px solid var(--line-soft);background:var(--ink-850)}
+.ocard-meta .k{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-700)}
+.ocard-meta .v{font-size:12px;margin-top:2px;color:var(--txt-100)}
+.ocard-meta .v.mono{font-family:var(--mono)}
+.ocard-foot{display:flex;gap:8px;padding:11px 15px;border-top:1px solid var(--line-soft)}
+.ocard-foot .btn{padding:7px 12px;font-size:12px;flex:1;justify-content:center}
+.ocard-total{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;border-top:1px dashed var(--line);font-weight:600}
+.ocard-total .tl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-500)}
+.ocard-total .tv{font-family:var(--mono);font-size:15px;color:var(--acc);font-variant-numeric:tabular-nums}
+
+/* follow-up chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding-left:40px}
+.chip-btn{display:inline-flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--line);color:var(--txt-500);
+  padding:7px 12px;border-radius:20px;font-size:12.5px;cursor:pointer;transition:.16s;font-weight:500}
+.chip-btn svg{width:13px;height:13px;color:var(--txt-700);transition:.16s}
+.chip-btn:hover{border-color:var(--acc-line);color:var(--txt-100);background:var(--acc-glow);box-shadow:0 0 18px -8px var(--acc-glow)}
+.chip-btn:hover svg{color:var(--acc)}
+
+/* composer */
+.composer{padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.composer .field{flex:1;display:flex;align-items:center;gap:10px;background:var(--ink-850);border:1px solid var(--line);border-radius:10px;padding:10px 14px;transition:.16s}
+.composer .field:focus-within{border-color:var(--acc-line);box-shadow:0 0 0 3px var(--acc-glow)}
+.composer input{flex:1;background:transparent;border:0;outline:0;color:var(--txt-100);font-size:13.5px;font-family:inherit}
+.composer input::placeholder{color:var(--txt-700)}
+.composer .kbd{font-family:var(--mono);font-size:10px;color:var(--txt-700);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.send-btn{width:40px;height:40px;border-radius:10px;background:linear-gradient(180deg,#33f0cf,var(--acc-dim));border:0;color:#04120f;display:grid;place-items:center;cursor:pointer;flex:none;box-shadow:0 0 20px -6px var(--acc-glow)}
+.send-btn:hover{filter:brightness(1.06)}
+.send-btn svg{width:17px;height:17px}
+
+/* ============================================================ REASONING PANEL — THE STAR */
+.reason{background:linear-gradient(180deg,#0e141b,var(--ink-850));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-card);position:sticky;top:80px;overflow:hidden}
+.reason-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,rgba(46,230,197,.05),transparent)}
+.reason-head .rt{display:flex;align-items:center;gap:10px}
+.reason-head .rt .ic{width:26px;height:26px;border-radius:7px;background:var(--acc-glow);display:grid;place-items:center;color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc-line)}
+.reason-head .rt .ic svg{width:15px;height:15px}
+.reason-head .rt .tt{font-size:13px;font-weight:600}
+.reason-head .rt .st{font-size:11px;color:var(--txt-500);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.reason-head .rt .st .live-dot{width:6px;height:6px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pulse 1.4s infinite}
+.replay-btn{display:inline-flex;align-items:center;gap:7px;background:var(--ink-750);border:1px solid var(--line);color:var(--txt-300);
+  padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;transition:.16s}
+.replay-btn:hover{border-color:var(--acc-line);color:var(--acc)}
+.replay-btn svg{width:13px;height:13px}
+
+.reason-stats{display:flex;border-bottom:1px solid var(--line)}
+.reason-stats .rs{flex:1;padding:11px 14px;border-right:1px solid var(--line-soft)}
+.reason-stats .rs:last-child{border-right:0}
+.reason-stats .rl{font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--txt-700)}
+.reason-stats .rv{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:3px}
+.reason-stats .rv.acc{color:var(--acc)}
+
+/* timeline */
+.timeline{padding:16px 18px;max-height:560px;overflow-y:auto;position:relative}
+.tl-track{position:absolute;left:29px;top:20px;bottom:20px;width:1.5px;background:linear-gradient(180deg,var(--acc-line),var(--line) 20%,var(--line))}
+.tstep{position:relative;padding-left:34px;padding-bottom:18px;opacity:0;transform:translateY(6px);transition:opacity .4s,transform .4s}
+.tstep.in{opacity:1;transform:none}
+.tstep:last-child{padding-bottom:4px}
+.tstep .marker{position:absolute;left:5px;top:1px;width:19px;height:19px;border-radius:50%;background:var(--ink-800);border:1.5px solid var(--line);display:grid;place-items:center;z-index:2}
+.tstep .marker svg{width:10px;height:10px;color:var(--txt-500)}
+.tstep.think .marker{border-color:var(--acc-line);background:var(--ink-750)}
+.tstep.think .marker .thinking-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pulse 1.2s infinite}
+.tstep.tool .marker{border-color:#2c3a48}
+.tstep.tool .marker svg{color:var(--acc)}
+.tstep.final .marker{background:var(--acc);border-color:var(--acc)}
+.tstep.final .marker svg{color:#04120f}
+
+.tstep .thead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tstep .kind{font-size:10px;text-transform:uppercase;letter-spacing:.13em;font-weight:600;color:var(--txt-500)}
+.tstep.think .kind{color:var(--acc)}
+.tstep .elapsed{font-family:var(--mono);font-size:10px;color:var(--txt-700);background:var(--ink-800);border:1px solid var(--line-soft);border-radius:5px;padding:1px 6px;margin-left:auto}
+
+/* reasoning text */
+.think-text{font-size:12.5px;color:var(--txt-300);line-height:1.6;font-style:normal}
+.think-text .cursor{display:inline-block;width:7px;height:14px;background:var(--acc);margin-left:2px;vertical-align:-2px;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* tool node */
+.tool-node{background:var(--ink-850);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.tool-call{display:flex;align-items:center;gap:8px;padding:9px 11px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+.tool-call .fn{color:var(--acc);font-weight:600}
+.tool-call .paren{color:var(--txt-500)}
+.tool-call .arg-k{color:var(--violet)}
+.tool-call .arg-v{color:var(--amber)}
+.tool-result{padding:9px 11px;background:#0a0f15}
+.tool-result .rlabel{font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--txt-700);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.tool-result .rlabel .ok{color:var(--green)}
+.tool-result pre{margin:0;font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--txt-300);white-space:pre-wrap;word-break:break-word}
+.tool-result .jkey{color:var(--violet)}
+.tool-result .jstr{color:var(--acc)}
+.tool-result .jnum{color:var(--amber)}
+.tool-result .jbool{color:var(--red)}
+
+.final-text{font-size:12.5px;color:var(--txt-100);line-height:1.6;background:var(--acc-glow);border:1px solid var(--acc-line);border-radius:9px;padding:11px 13px}
+.final-text b{color:#fff}
+
+/* empty state */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 30px;color:var(--txt-500)}
+.empty .ei{width:52px;height:52px;border-radius:14px;background:var(--ink-750);border:1px solid var(--line);display:grid;place-items:center;color:var(--txt-500);margin-bottom:16px}
+.empty .ei svg{width:24px;height:24px}
+.empty h3{font-size:15px;color:var(--txt-100);margin:0 0 6px;font-weight:600}
+.empty p{font-size:13px;margin:0;max-width:280px}
+
+.hint{font-size:11px;color:var(--txt-700);margin-top:14px;font-family:var(--mono);display:flex;align-items:center;gap:8px;justify-content:center}
+.hint .kbd{border:1px solid var(--line);border-radius:5px;padding:2px 6px;color:var(--txt-500)}
+
+@media(max-width:900px){
+  .orders-grid{grid-template-columns:1fr}
+  .nav button span{display:none}
+  .nav button{padding:7px 11px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= TOP BAR ================= -->
+<header class="topbar">
+  <div class="brand">
+    <div class="glyph">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none"><circle cx="12" cy="12" r="7" stroke="#04120f" stroke-width="2"/><circle cx="12" cy="12" r="2.4" fill="#04120f"/></svg>
+    </div>
+    <div class="name">Aperture<small>Order Support Console</small></div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <button data-view="orders" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Orders</span>
+    </button>
+    <button data-view="tickets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4V6z"/><path d="M13 6v12" stroke-dasharray="2 2"/></svg><span>Tickets</span>
+    </button>
+    <button data-view="assistant">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9z"/><circle cx="9" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="13" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg><span>Assistant</span>
+    </button>
+  </nav>
+
+  <div class="spacer"></div>
+
+  <div class="live"><span class="dot"></span>AGENT · ONLINE</div>
+
+  <div class="cust">
+    <button class="cust-btn" id="custBtn">
+      <span class="avatar" id="custAv" style="background:linear-gradient(135deg,#35ffdd,#17a892)">AS</span>
+      <span class="cust-meta"><span class="cn" id="custName">Aarav Sharma</span><span class="cid" id="custId">CUS-001</span></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="cust-menu" id="custMenu">
+      <div class="head">Switch customer · India</div>
+      <div class="cust-item sel" data-cus="CUS-001">
+        <span class="avatar" style="background:linear-gradient(135deg,#35ffdd,#17a892)">AS</span>
+        <span><span class="cn">Aarav Sharma</span><br><span class="sub">CUS-001 · Bengaluru</span></span>
+        <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="cust-item" data-cus="CUS-002">
+        <span class="avatar" style="background:linear-gradient(135deg,#8b93ff,#5a63d6)">MI</span>
+        <span><span class="cn">Meera Iyer</span><br><span class="sub">CUS-002 · Chennai</span></span>
+        <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="cust-item" data-cus="CUS-003">
+        <span class="avatar" style="background:linear-gradient(135deg,#f2b34a,#d68a1e)">KK</span>
+        <span><span class="cn">Kabir Khan</span><br><span class="sub">CUS-003 · Mumbai</span></span>
+        <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="stage">
+
+  <!-- ================= ORDERS VIEW ================= -->
+  <section class="view active" id="view-orders">
+    <div class="page-head">
+      <div>
+        <h1>Orders &amp; Overview</h1>
+        <div class="sub">Viewing order history for <b id="ordCustLabel">Aarav Sharma</b> · <span class="mono" id="ordCustId">CUS-001</span></div>
+      </div>
+      <div class="kpis" id="ordKpis"></div>
+    </div>
+
+    <div class="orders-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Order History</span>
+          <span class="count-badge" id="ordCount">2 orders</span>
+        </div>
+        <div class="olist" id="orderList"></div>
+      </div>
+
+      <div class="panel" id="detailPanel">
+        <div class="panel-head">
+          <span class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Order Detail</span>
+          <span class="count-badge">live</span>
+        </div>
+        <div id="orderDetail"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TICKETS VIEW ================= -->
+  <section class="view" id="view-tickets">
+    <div class="page-head">
+      <div>
+        <h1>Invoice Tickets</h1>
+        <div class="sub">Open invoice-generation requests for <b id="tkCustLabel">Aarav Sharma</b></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Open</div><div class="v amber" id="tkOpen">0</div></div>
+        <div class="kpi"><div class="l">Resolved · 30d</div><div class="v green">14</div></div>
+        <div class="kpi"><div class="l">Avg. time</div><div class="v">2.4h</div></div>
+      </div>
+    </div>
+    <div id="ticketsWrap"></div>
+  </section>
+
+  <!-- ================= ASSISTANT VIEW ================= -->
+  <section class="view" id="view-assistant">
+    <div class="page-head">
+      <div>
+        <h1>Assistant</h1>
+        <div class="sub">Natural-language order support for <b id="asCustLabel">Meera Iyer</b> · reasoning streamed live &rarr;</div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Tools called</div><div class="v acc">4</div></div>
+        <div class="kpi"><div class="l">Latency</div><div class="v">1.84s</div></div>
+        <div class="kpi"><div class="l">Model</div><div class="v" style="font-size:13px">claude-opus</div></div>
+      </div>
+    </div>
+
+    <div class="assist-grid">
+      <!-- CHAT -->
+      <div class="chat">
+        <div class="chat-head">
+          <div class="av"><svg viewBox="0 0 24 24" fill="none" stroke="#04120f" stroke-width="1.8"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.4" fill="#04120f" stroke="none"/></svg></div>
+          <div><div class="ct">Support Assistant</div><div class="cs"><span class="d"></span>Acting on behalf of Meera Iyer · CUS-002</div></div>
+          <div class="spacer"></div>
+          <span class="count-badge">Session #A-2291</span>
+        </div>
+        <div class="chat-body" id="chatBody">
+          <!-- user msg -->
+          <div class="msg user">
+            <div class="m-av">MI</div>
+            <div class="bubble">Where is my backpack order and can I get an invoice for it?</div>
+          </div>
+
+          <!-- bot msg with order card -->
+          <div class="msg bot">
+            <div class="m-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg></div>
+            <div class="msg-col">
+              <div class="bubble">Your <b>UrbanTrail Backpack</b> order is being processed and is arriving <b>~12 Aug 2026</b>. I've queued your invoice — you can track it under ticket <b>TKT-7002</b>.</div>
+
+              <!-- ORDER CARD -->
+              <div class="ocard">
+                <div class="ocard-top">
+                  <div>
+                    <div class="oid">ORD-1087</div>
+                    <div class="oplaced">Placed 07 Aug 2026</div>
+                  </div>
+                  <span class="chip processing"><span class="cd"></span>Processing</span>
+                </div>
+                <div class="ocard-body">
+                  <div class="ocard-item">
+                    <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span>
+                    <span><div class="in">UrbanTrail Backpack</div><div class="isk">SKU · UT-BKP-GRY</div></span>
+                    <span class="ip">₹2,499.00</span>
+                  </div>
+                  <div class="ocard-item">
+                    <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M7 7h10v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7z"/></svg></span>
+                    <span><div class="in">SteelSip Bottle</div><div class="isk">SKU · SS-BTL-500</div></span>
+                    <span class="ip">₹899.00</span>
+                  </div>
+                </div>
+                <div class="ocard-meta">
+                  <div><div class="k">Est. delivery</div><div class="v">12 Aug 2026</div></div>
+                  <div><div class="k">Payment</div><div class="v mono">UPI</div></div>
+                  <div style="grid-column:1/3"><div class="k">Ship to</div><div class="v">8 Palm Grove, Adyar, Chennai 600020</div></div>
+                </div>
+                <div class="ocard-total">
+                  <span class="tl">Order total</span>
+                  <span class="tv">₹3,398.00</span>
+                </div>
+                <div class="ocard-foot">
+                  <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>Email invoice</button>
+                  <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Track order</button>
+                </div>
+              </div>
+
+              <div class="inv queued" style="align-self:flex-start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Invoice queued · TKT-7002</div>
+            </div>
+          </div>
+
+          <!-- follow-up chips -->
+          <div class="chips">
+            <button class="chip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Where is my order?</button>
+            <button class="chip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>Email me the invoice</button>
+            <button class="chip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Change delivery address</button>
+            <button class="chip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l6-6"/><circle cx="12" cy="12" r="9"/></svg>Show my other orders</button>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="field">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--txt-700)" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input placeholder="Ask about an order, invoice, or delivery…" />
+            <span class="kbd">↵</span>
+          </div>
+          <button class="send-btn" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg></button>
+        </div>
+      </div>
+
+      <!-- REASONING PANEL -->
+      <aside class="reason">
+        <div class="reason-head">
+          <div class="rt">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a5 5 0 0 1 5 5c0 1.6-.7 2.6-1.5 3.5-.6.7-1 1.4-1 2.5H9.5c0-1.1-.4-1.8-1-2.5C7.7 10.6 7 9.6 7 8a5 5 0 0 1 5-5z"/><path d="M9.5 18h5M10 21h4"/></svg></div>
+            <div>
+              <div class="tt">Reasoning Stream</div>
+              <div class="st" id="reasonStatus"><span class="live-dot"></span>replay ready</div>
+            </div>
+          </div>
+          <button class="replay-btn" id="replayBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Replay</button>
+        </div>
+
+        <div class="reason-stats">
+          <div class="rs"><div class="rl">Tool calls</div><div class="rv acc" id="statTools">4</div></div>
+          <div class="rs"><div class="rl">Reason tokens</div><div class="rv" id="statTokens">312</div></div>
+          <div class="rs"><div class="rl">Total time</div><div class="rv" id="statTime">1.84s</div></div>
+        </div>
+
+        <div class="timeline" id="timeline">
+          <div class="tl-track"></div>
+          <!-- steps injected / revealed by JS -->
+        </div>
+      </aside>
+    </div>
+  </section>
+
+</main>
+
+<!-- toast -->
+<div class="toast" id="toast">
+  <div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+  <div><div class="tt" id="toastTitle">Invoice generated</div><div class="ts" id="toastSub">ORD-1087 · sent to queue</div></div>
+</div>
+
+<script>
+/* ============================================================ DATA */
+const CUSTOMERS = {
+  'CUS-001':{name:'Aarav Sharma',city:'Bengaluru',init:'AS',grad:'linear-gradient(135deg,#35ffdd,#17a892)'},
+  'CUS-002':{name:'Meera Iyer',city:'Chennai',init:'MI',grad:'linear-gradient(135deg,#8b93ff,#5a63d6)'},
+  'CUS-003':{name:'Kabir Khan',city:'Mumbai',init:'KK',grad:'linear-gradient(135deg,#f2b34a,#d68a1e)'}
+};
+const ORDERS = {
+  'CUS-001':[
+    {id:'ORD-1042',status:'shipped',placed:'04 Aug 2026',delivery:'11 Aug 2026',pay:'Visa ending 1842',
+     addr:'22 Lakeview Apartments, Koramangala, Bengaluru 560034',invoice:'available',total:'₹7,498.00',
+     items:[{q:1,n:'NoiseBeat H100 Headphones',sku:'NB-H100-BLK',p:'₹7,498.00'}]},
+    {id:'ORD-1038',status:'cancelled',placed:'28 Jul 2026',delivery:'—',pay:'Visa ending 1842',
+     addr:'22 Lakeview Apartments, Koramangala, Bengaluru 560034',invoice:'none',total:'₹4,299.00',
+     items:[{q:1,n:'BrewPro Coffee Maker',sku:'BP-CM-STL',p:'₹4,299.00'}]}
+  ],
+  'CUS-002':[
+    {id:'ORD-1087',status:'processing',placed:'07 Aug 2026',delivery:'12 Aug 2026',pay:'UPI account',
+     addr:'8 Palm Grove, Adyar, Chennai 600020',invoice:'queued',ticket:'TKT-7002',total:'₹3,398.00',
+     items:[{q:1,n:'UrbanTrail Backpack',sku:'UT-BKP-GRY',p:'₹2,499.00'},{q:1,n:'SteelSip Bottle',sku:'SS-BTL-500',p:'₹899.00'}]},
+    {id:'ORD-1095',status:'delivered',placed:'—',delivery:'Delivered 08 Aug 2026',pay:'UPI',
+     addr:'8 Palm Grove, Adyar, Chennai 600020',invoice:'available',total:'₹5,199.00',
+     items:[{q:1,n:'HomeChef Mixer',sku:'HC-MIX-450',p:'₹5,199.00'}]}
+  ],
+  'CUS-003':[
+    {id:'ORD-1064',status:'delivered',placed:'—',delivery:'Delivered 03 Aug 2026',pay:'Mastercard ending 7710',
+     addr:'51 Crescent Residency, Bandra West, Mumbai 400050',invoice:'available',total:'₹6,398.00',
+     items:[{q:2,n:'NorthPeak Rain Jacket',sku:'NP-RJ-NVY',p:'₹3,199.00'}]}
+  ]
+};
+const TICKETS = {
+  'CUS-002':[{id:'TKT-7002',order:'ORD-1087',status:'Queued',requested:'08 Aug 2026',items:'2 items',total:'₹3,398.00'}]
+};
+const STATUS_LABEL={shipped:'Shipped',processing:'Processing',delivered:'Delivered',cancelled:'Cancelled'};
+
+let currentCus='CUS-001';
+let selectedOrder=ORDERS['CUS-001'][0].id;
+
+/* ============================================================ NAV */
+const nav=document.getElementById('nav');
+nav.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const v=b.dataset.view;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(v==='assistant') playReasoning();
+});
+
+/* ============================================================ CUSTOMER SWITCHER */
+const custBtn=document.getElementById('custBtn'), custMenu=document.getElementById('custMenu');
+custBtn.addEventListener('click',e=>{e.stopPropagation();custMenu.classList.toggle('open')});
+document.addEventListener('click',()=>custMenu.classList.remove('open'));
+custMenu.addEventListener('click',e=>{
+  const it=e.target.closest('.cust-item'); if(!it)return;
+  setCustomer(it.dataset.cus);
+  document.querySelectorAll('.cust-item').forEach(x=>x.classList.remove('sel'));
+  it.classList.add('sel');
+  custMenu.classList.remove('open');
+});
+function setCustomer(id){
+  currentCus=id; const c=CUSTOMERS[id];
+  document.getElementById('custName').textContent=c.name;
+  document.getElementById('custId').textContent=id;
+  const av=document.getElementById('custAv'); av.textContent=c.init; av.style.background=c.grad;
+  document.getElementById('ordCustLabel').textContent=c.name;
+  document.getElementById('ordCustId').textContent=id;
+  document.getElementById('tkCustLabel').textContent=c.name;
+  selectedOrder=ORDERS[id][0].id;
+  renderOrders(); renderTickets();
+}
+
+/* ============================================================ ORDERS RENDER */
+function statusChip(s){return `<span class="chip ${s}"><span class="cd"></span>${STATUS_LABEL[s]}</span>`}
+function invTag(inv){
+  if(inv==='available')return `<span class="inv available"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Invoice available</span>`;
+  if(inv==='queued')return `<span class="inv queued"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Queued</span>`;
+  return `<span class="inv none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Not requested</span>`;
+}
+function renderOrders(){
+  const list=ORDERS[currentCus];
+  document.getElementById('ordCount').textContent=list.length+(list.length===1?' order':' orders');
+  // kpis
+  const spent=list.reduce((a,o)=>a+parseFloat(o.total.replace(/[₹,]/g,'')),0);
+  const active=list.filter(o=>o.status==='processing'||o.status==='shipped').length;
+  document.getElementById('ordKpis').innerHTML=`
+    <div class="kpi"><div class="l">Orders</div><div class="v">${list.length}</div></div>
+    <div class="kpi"><div class="l">Active</div><div class="v acc">${active}</div></div>
+    <div class="kpi"><div class="l">Lifetime</div><div class="v">₹${spent.toLocaleString('en-IN',{minimumFractionDigits:2})}</div></div>`;
+  // list
+  document.getElementById('orderList').innerHTML=list.map(o=>`
+    <div class="orow ${o.id===selectedOrder?'sel':''}" data-oid="${o.id}">
+      <span class="sdot" style="background:var(--${o.status==='shipped'?'violet':o.status==='processing'?'amber':o.status==='delivered'?'green':'red'})"></span>
+      <div>
+        <div class="oid">${o.id}</div>
+        <div class="oitems">${o.items.map(i=>i.q+'× '+i.n).join(', ')}</div>
+      </div>
+      <div class="oright">
+        <div class="oamt">${o.total}</div>
+        <div class="odate">${o.placed!=='—'?o.placed:o.delivery}</div>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('.orow').forEach(r=>r.addEventListener('click',()=>{selectedOrder=r.dataset.oid;renderOrders();}));
+  renderDetail();
+}
+function stepper(status){
+  const stages=['Placed','Processing','Shipped','Delivered'];
+  let idx={processing:1,shipped:2,delivered:3}[status];
+  if(status==='cancelled'){
+    return `<div class="stepper">
+      <div class="step done"><div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div><div class="lbl">Placed</div></div>
+      <div class="step-line"></div>
+      <div class="step cancelled-node"><div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6L6 18M6 6l12 12"/></svg></div><div class="lbl">Cancelled</div></div>
+    </div>`;
+  }
+  let html='<div class="stepper">';
+  stages.forEach((s,i)=>{
+    const cls=i<idx?'done':i===idx?'current':'';
+    const icon=i<idx?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>':'<span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:block"></span>';
+    html+=`<div class="step ${cls}"><div class="node">${icon}</div><div class="lbl">${s}</div></div>`;
+    if(i<stages.length-1)html+=`<div class="step-line ${i<idx?'done':''}"></div>`;
+  });
+  return html+'</div>';
+}
+function renderDetail(){
+  const o=ORDERS[currentCus].find(x=>x.id===selectedOrder);
+  if(!o){document.getElementById('orderDetail').innerHTML='';return;}
+  const rows=o.items.map(i=>`
+    <div class="ir">
+      <span class="qty">${i.q}×</span>
+      <span><div class="iname">${i.n}</div><div class="isku">SKU · ${i.sku}</div></span>
+      <span class="iprice">${i.p}</span>
+    </div>`).join('');
+  const canInvoice=o.status!=='cancelled';
+  document.getElementById('orderDetail').innerHTML=`
+    <div class="detail">
+      <div class="detail-top">
+        <div><div class="oid">${o.id}</div><div class="placed">${o.placed!=='—'?'Placed '+o.placed:o.delivery}</div></div>
+        ${statusChip(o.status)}
+      </div>
+      ${stepper(o.status)}
+      <div class="dgrid">
+        <div class="dfield"><div class="k">Est. delivery</div><div class="v">${o.delivery}</div></div>
+        <div class="dfield"><div class="k">Payment</div><div class="v mono">${o.pay}</div></div>
+        <div class="dfield" style="grid-column:1/3"><div class="k">Shipping address</div><div class="v">${o.addr}</div></div>
+      </div>
+      <div class="items-tbl">
+        ${rows}
+        <div class="ir total"><span></span><span class="iname">Order total</span><span class="iprice">${o.total}</span></div>
+      </div>
+      <div style="margin-bottom:16px">${invTag(o.invoice)}</div>
+      <div class="detail-actions">
+        ${o.invoice==='available'
+          ? '<button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Download invoice</button>'
+          : canInvoice
+            ? `<button class="btn primary" onclick="fireInvoice('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 12v6M9 15h6"/></svg>Request invoice</button>`
+            : '<button class="btn" disabled>Invoice unavailable</button>'}
+        <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>Email customer</button>
+      </div>
+    </div>`;
+}
+
+/* ============================================================ TICKETS RENDER */
+function renderTickets(){
+  const list=TICKETS[currentCus]||[];
+  document.getElementById('tkOpen').textContent=list.length;
+  const wrap=document.getElementById('ticketsWrap');
+  if(!list.length){
+    wrap.innerHTML=`<div class="empty">
+      <div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4V6z"/></svg></div>
+      <h3>No open tickets</h3>
+      <p>${CUSTOMERS[currentCus].name} has no pending invoice requests. New requests will appear here instantly.</p>
+    </div>`;
+    return;
+  }
+  wrap.innerHTML='<div class="tickets-wrap">'+list.map(t=>`
+    <div class="ticket">
+      <span class="ledge"></span>
+      <div>
+        <div class="tid">${t.id}<span class="chip processing"><span class="cd"></span>${t.status}</span></div>
+        <div class="tmeta">
+          <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h6"/></svg>Invoice for <span class="mono">${t.order}</span></span>
+          <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Requested ${t.requested}</span>
+          <span>${t.items}</span>
+          <span>Total <span class="mono">${t.total}</span></span>
+        </div>
+      </div>
+      <div class="ticket-right">
+        <button class="btn primary" onclick="fireInvoice('${t.order}',true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Generate Invoice</button>
+        <span style="font-size:11px;color:var(--txt-700);font-family:var(--mono)">SLA · resolves in 2h</span>
+      </div>
+    </div>`).join('')+'</div>';
+}
+
+/* ============================================================ TOAST / INVOICE */
+let toastT;
+function fireInvoice(oid,fromTicket){
+  const t=document.getElementById('toast');
+  document.getElementById('toastTitle').textContent=fromTicket?'Invoice generated':'Invoice requested';
+  document.getElementById('toastSub').textContent=oid+(fromTicket?' · PDF ready to send':' · added to queue');
+  t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+/* ============================================================ REASONING STREAM — THE STAR */
+const STEPS=[
+  {kind:'think',t:180,label:'Reasoning',text:"Meera is asking two things: the status of her \"backpack order\" and an invoice for it. I don't yet have her order IDs — I'll list her orders first, then match the backpack SKU."},
+  {kind:'tool',t:240,fn:'list_orders',args:{customer_id:'CUS-002'},
+   result:{orders:[{id:'ORD-1087',status:'processing',placed:'2026-08-07'},{id:'ORD-1095',status:'delivered',placed:'2026-08-02'}]}},
+  {kind:'think',t:150,label:'Reasoning',text:"ORD-1087 is 'processing' and recent — the backpack is almost certainly here. Let me pull full details to confirm the item and delivery estimate."},
+  {kind:'tool',t:260,fn:'get_order_details',args:{order_id:'ORD-1087'},
+   result:{id:'ORD-1087',status:'processing',est_delivery:'2026-08-12',items:[{name:'UrbanTrail Backpack',sku:'UT-BKP-GRY',qty:1,price:2499},{name:'SteelSip Bottle',sku:'SS-BTL-500',qty:1,price:899}],total:3398.00,currency:'INR'}},
+  {kind:'think',t:120,label:'Reasoning',text:"Confirmed: UrbanTrail Backpack, arriving ~12 Aug. Now the invoice — check whether one already exists before requesting a new one."},
+  {kind:'tool',t:210,fn:'get_invoice',args:{order_id:'ORD-1087'},
+   result:{order_id:'ORD-1087',invoice:null,state:'not_generated'}},
+  {kind:'think',t:110,label:'Reasoning',text:"No invoice yet, and the order is valid (not cancelled). I'll request one on her behalf so it's queued for generation."},
+  {kind:'tool',t:230,fn:'request_invoice',args:{order_id:'ORD-1087'},
+   result:{order_id:'ORD-1087',ticket:'TKT-7002',state:'queued',eta_hours:2}},
+  {kind:'final',t:90,text:"I have everything: order located, delivery ~12 Aug, invoice queued as TKT-7002. Compose a concise reply with an order card and follow-up suggestions."}
+];
+const ICONS={
+  think:'<span class="thinking-dot"></span>',
+  tool:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 6l4 4M4 20l4-1L19 8a2.8 2.8 0 0 0-4-4L4 15l-1 5z"/></svg>',
+  final:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>'
+};
+function jsonHtml(obj){
+  let s=JSON.stringify(obj,null,2);
+  s=s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  s=s.replace(/"([^"]+)":/g,'<span class="jkey">"$1"</span>:');
+  s=s.replace(/: "([^"]*)"/g,': <span class="jstr">"$1"</span>');
+  s=s.replace(/: (\d+\.?\d*)/g,': <span class="jnum">$1</span>');
+  s=s.replace(/: (true|false|null)/g,': <span class="jbool">$1</span>');
+  return s;
+}
+function argsHtml(args){
+  return Object.entries(args).map(([k,v])=>
+    `<span class="arg-k">${k}</span>=<span class="arg-v">${typeof v==='string'?'"'+v+'"':v}</span>`).join('<span class="paren">, </span>');
+}
+function buildTimeline(){
+  const tl=document.getElementById('timeline');
+  tl.innerHTML='<div class="tl-track"></div>';
+  let elapsed=0;
+  STEPS.forEach((s,i)=>{
+    elapsed+=s.t;
+    const el=document.createElement('div');
+    el.className='tstep '+s.kind;
+    el.dataset.i=i;
+    let inner=`<div class="marker">${ICONS[s.kind]}</div>
+      <div class="thead"><span class="kind">${s.kind==='think'?'Reasoning':s.kind==='final'?'Final answer':'Tool call'}</span>
+      <span class="elapsed">+${(elapsed/1000).toFixed(2)}s</span></div>`;
+    if(s.kind==='think'){
+      inner+=`<div class="think-text">${s.text}</div>`;
+    }else if(s.kind==='final'){
+      inner+=`<div class="final-text">${s.text}</div>`;
+    }else{
+      inner+=`<div class="tool-node">
+        <div class="tool-call"><span class="fn">${s.fn}</span><span class="paren">(</span>${argsHtml(s.args)}<span class="paren">)</span></div>
+        <div class="tool-result"><div class="rlabel"><svg class="ok" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg>Returned JSON · 200 OK</div><pre>${jsonHtml(s.result)}</pre></div>
+      </div>`;
+    }
+    el.innerHTML=inner;
+    tl.appendChild(el);
+  });
+}
+let replayTimers=[];
+function playReasoning(){
+  replayTimers.forEach(clearTimeout); replayTimers=[];
+  buildTimeline();
+  const steps=[...document.querySelectorAll('.tstep')];
+  const status=document.getElementById('reasonStatus');
+  status.innerHTML='<span class="live-dot"></span>thinking…';
+  let d=250;
+  steps.forEach((el,i)=>{
+    replayTimers.push(setTimeout(()=>{
+      el.classList.add('in');
+      el.scrollIntoView({behavior:'smooth',block:'nearest'});
+      if(i===steps.length-1) status.innerHTML='<span class="live-dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>resolved · 1.84s';
+    },d));
+    d+= STEPS[i].kind==='think'?820:640;
+  });
+}
+document.getElementById('replayBtn').addEventListener('click',playReasoning);
+
+/* ============================================================ INIT */
+renderOrders();
+renderTickets();
+buildTimeline();
+document.querySelectorAll('.tstep').forEach(s=>s.classList.add('in'));
+</script>
+</body>
+</html>

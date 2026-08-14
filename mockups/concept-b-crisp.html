@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Support Console — Crisp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Support Console — "Crisp Modern Product"
+     Indigo accent · cool slate neutrals · 8px grid · hairlines
+     ============================================================ */
+
+  :root {
+    /* Light theme (default) */
+    --bg:            #f6f7f9;
+    --surface:       #ffffff;
+    --surface-2:     #f3f4f6;
+    --surface-3:     #eef0f3;
+    --border:        #e5e7eb;
+    --border-strong: #d5d9df;
+    --text:          #0f1729;
+    --text-2:        #4a5365;
+    --text-3:        #79808f;
+    --text-inv:      #ffffff;
+
+    --accent:        #4f46e5;
+    --accent-600:    #4338ca;
+    --accent-700:    #3730a3;
+    --accent-fg:     #ffffff;
+    --accent-soft:   #eef1ff;
+    --accent-line:   #d7dbfb;
+    --accent-text:   #4338ca;
+
+    --ok:      #0f9d6b;
+    --ok-soft: #e7f6ef;
+    --info:    #2563eb;
+    --info-soft:#e8f0fe;
+    --warn:    #b7791f;
+    --warn-soft:#fdf3e2;
+    --danger:  #d64545;
+    --danger-soft:#fbecec;
+    --muted-dot:#98a1b0;
+
+    --shadow-sm: 0 1px 2px rgba(16,23,41,.06);
+    --shadow-md: 0 4px 12px -2px rgba(16,23,41,.10), 0 2px 4px -2px rgba(16,23,41,.06);
+    --shadow-lg: 0 24px 48px -12px rgba(16,23,41,.24);
+
+    --r-xs: 5px;
+    --r-sm: 7px;
+    --r-md: 10px;
+    --r-lg: 14px;
+
+    --nav-w: 232px;
+    --topbar-h: 56px;
+
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  [data-theme="dark"] {
+    --bg:            #0a0c11;
+    --surface:       #12151c;
+    --surface-2:     #171b23;
+    --surface-3:     #1d222c;
+    --border:        #262b35;
+    --border-strong: #333a46;
+    --text:          #e8eaee;
+    --text-2:        #a2abb9;
+    --text-3:        #6d7684;
+    --text-inv:      #0a0c11;
+
+    --accent:        #6d74f5;
+    --accent-600:    #7d84ff;
+    --accent-700:    #8b91ff;
+    --accent-fg:     #0a0c11;
+    --accent-soft:   #191c2e;
+    --accent-line:   #2e3358;
+    --accent-text:   #9aa0ff;
+
+    --ok:      #34c68a;
+    --ok-soft: #10231c;
+    --info:    #5b9bff;
+    --info-soft:#0f1b30;
+    --warn:    #e0a94a;
+    --warn-soft:#231a0d;
+    --danger:  #f0716f;
+    --danger-soft:#2a1414;
+    --muted-dot:#5b6472;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 6px 16px -4px rgba(0,0,0,.55);
+    --shadow-lg: 0 28px 56px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv05" 1, "ss01" 1;
+  }
+  ::selection { background: var(--accent-soft); color: var(--accent-text); }
+
+  /* focus ring */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-xs); }
+  button { font-family: inherit; }
+
+  .mono { font-family: var(--mono); font-feature-settings: "zero" 1; }
+  .num  { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+
+  /* ============================================================
+     App shell
+     ============================================================ */
+  .app {
+    display: grid;
+    grid-template-columns: var(--nav-w) 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .brand {
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-mark {
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    display: grid; place-items: center;
+    flex: none;
+    box-shadow: var(--shadow-sm);
+  }
+  .brand-name { font-weight: 600; letter-spacing: -.01em; font-size: 14px; }
+  .brand-sub  { font-size: 11px; color: var(--text-3); font-weight: 450; letter-spacing: .02em; }
+
+  .nav {
+    padding: 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: var(--text-3);
+    font-weight: 600;
+    padding: 12px 10px 6px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    color: var(--text-2);
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-size: 13.5px;
+    position: relative;
+    transition: background .12s ease, color .12s ease;
+  }
+  .nav-item svg { flex: none; color: var(--text-3); transition: color .12s ease; }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item:hover svg { color: var(--text-2); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent-text); }
+  .nav-item.active svg { color: var(--accent); }
+  .nav-item .count {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 18px; height: 18px;
+    padding: 0 5px;
+    border-radius: 20px;
+    display: grid; place-items: center;
+    background: var(--surface-3);
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .nav-item.active .count { background: var(--accent); color: var(--accent-fg); }
+
+  .sidebar-foot {
+    margin-top: auto;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .agent-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; border-radius: var(--r-sm);
+  }
+  .agent-av {
+    width: 30px; height: 30px; border-radius: 8px; flex: none;
+    background: var(--surface-3); color: var(--text-2);
+    display: grid; place-items: center; font-weight: 600; font-size: 12px;
+    border: 1px solid var(--border);
+  }
+  .agent-meta { min-width: 0; }
+  .agent-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .agent-role { font-size: 11px; color: var(--text-3); }
+
+  /* ---------- Main ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    height: var(--topbar-h);
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    backdrop-filter: saturate(140%) blur(8px);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 20px;
+    flex: none;
+  }
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); min-width: 0; }
+  .crumbs .cur { color: var(--text); font-weight: 600; }
+  .crumbs svg { color: var(--text-3); }
+
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* customer switcher */
+  .switcher { position: relative; }
+  .switcher-btn {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 9px 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    cursor: pointer;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .switcher-btn:hover { border-color: var(--border-strong); background: var(--surface-2); }
+  .cust-av {
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    display: grid; place-items: center; font-weight: 600; font-size: 11px;
+    color: var(--accent-fg); background: var(--accent);
+  }
+  .cust-av.c2 { background: #0f9d6b; }
+  .cust-av.c3 { background: #b7791f; }
+  .switcher-name { font-size: 13px; font-weight: 600; line-height: 1.1; }
+  .switcher-id { font-size: 10.5px; color: var(--text-3); }
+  .switcher-btn .chev { color: var(--text-3); margin-left: 2px; }
+
+  .menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    width: 268px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    z-index: 60;
+    display: none;
+  }
+  .menu.open { display: block; animation: pop .12s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.99); } to { opacity: 1; transform: none; } }
+  .menu-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); font-weight: 600; padding: 8px 8px 6px; }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; border-radius: var(--r-sm);
+    cursor: pointer; width: 100%; border: none; background: transparent; text-align: left;
+    color: var(--text);
+  }
+  .menu-item:hover { background: var(--surface-2); }
+  .menu-item .m-name { font-size: 13px; font-weight: 550; }
+  .menu-item .m-sub { font-size: 11px; color: var(--text-3); }
+  .menu-item .check { margin-left: auto; color: var(--accent); opacity: 0; }
+  .menu-item.sel .check { opacity: 1; }
+
+  .icon-btn {
+    width: 34px; height: 34px; flex: none;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--text-2);
+    display: grid; place-items: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: border-color .12s ease, color .12s ease, background .12s ease;
+  }
+  .icon-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+
+  /* content scroll region */
+  .content { flex: 1; overflow-y: auto; min-height: 0; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 24px 28px 64px; }
+
+  .page-head { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 20px; }
+  .page-title { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  .page-desc { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+  .page-head .spacer { flex: 1; }
+
+  /* ============================================================
+     Shared bits: badges, buttons, dots
+     ============================================================ */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 21px; padding: 0 8px;
+    border-radius: 20px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: .01em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .badge .dot { width: 6px; height: 6px; }
+
+  .st-shipped    { color: var(--info);  background: var(--info-soft);  border-color: color-mix(in srgb, var(--info) 22%, transparent); }
+  .st-shipped .dot   { background: var(--info); }
+  .st-processing { color: var(--warn);  background: var(--warn-soft);  border-color: color-mix(in srgb, var(--warn) 26%, transparent); }
+  .st-processing .dot{ background: var(--warn); }
+  .st-delivered  { color: var(--ok);    background: var(--ok-soft);    border-color: color-mix(in srgb, var(--ok) 24%, transparent); }
+  .st-delivered .dot { background: var(--ok); }
+  .st-cancelled  { color: var(--text-3);background: var(--surface-2);  border-color: var(--border); }
+  .st-cancelled .dot { background: var(--muted-dot); }
+  .st-queued     { color: var(--warn);  background: var(--warn-soft);  border-color: color-mix(in srgb, var(--warn) 26%, transparent); }
+  .st-queued .dot    { background: var(--warn); }
+
+  .inv-badge { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+  .inv-available { color: var(--ok); }
+  .inv-queued    { color: var(--warn); }
+  .inv-none      { color: var(--text-3); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 34px; padding: 0 13px;
+    border-radius: var(--r-sm);
+    font-size: 13px; font-weight: 550;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background .12s ease, border-color .12s ease, transform .05s ease;
+  }
+  .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+  .btn:active { transform: translateY(.5px); }
+  .btn svg { color: var(--text-2); }
+  .btn.primary {
+    background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+    box-shadow: 0 1px 2px rgba(79,70,229,.35);
+  }
+  .btn.primary:hover { background: var(--accent-600); border-color: var(--accent-600); }
+  .btn.primary svg { color: var(--accent-fg); }
+  .btn.sm { height: 29px; padding: 0 10px; font-size: 12.5px; border-radius: var(--r-xs); }
+  .btn.ghost { border-color: transparent; background: transparent; box-shadow: none; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ============================================================
+     ORDERS VIEW
+     ============================================================ */
+  .orders-grid { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 20px; align-items: start; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+  .stat { padding: 13px 14px; }
+  .stat-k { font-size: 11.5px; color: var(--text-3); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .stat-v { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .stat-v small { font-size: 12px; color: var(--text-3); font-weight: 500; margin-left: 4px; }
+
+  .list-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .list-title { font-size: 13px; font-weight: 600; }
+  .list-head .spacer { flex: 1; }
+
+  .order-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    width: 100%; text-align: left; background: transparent; border-left: 0; border-right: 0; border-top: 0;
+    color: inherit; font-family: inherit;
+    transition: background .1s ease;
+    position: relative;
+  }
+  .order-row:last-child { border-bottom: none; }
+  .order-row:hover { background: var(--surface-2); }
+  .order-row.sel { background: var(--accent-soft); }
+  .order-row.sel::before { content:""; position:absolute; left:0; top:0; bottom:0; width:2.5px; background: var(--accent); }
+  .order-thumb {
+    width: 40px; height: 40px; flex: none; border-radius: 8px;
+    background: var(--surface-3); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--text-3);
+  }
+  .order-main { min-width: 0; }
+  .order-id { font-size: 13px; font-weight: 600; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; }
+  .order-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .order-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  .order-total { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+
+  /* Order detail panel */
+  .detail { position: sticky; top: 0; }
+  .detail-head { padding: 16px 16px 14px; border-bottom: 1px solid var(--border); }
+  .detail-id { font-size: 15px; font-weight: 600; font-family: var(--mono); letter-spacing: -.01em; }
+  .detail-sub { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+
+  /* stepper */
+  .stepper { display: flex; align-items: flex-start; padding: 16px 16px 6px; }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; position: relative; }
+  .step .node {
+    width: 22px; height: 22px; border-radius: 50%; z-index: 2;
+    display: grid; place-items: center;
+    background: var(--surface); border: 1.5px solid var(--border-strong); color: var(--text-3);
+  }
+  .step.done .node { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .step.current .node { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .step .bar { position: absolute; top: 11px; left: 50%; width: 100%; height: 1.5px; background: var(--border-strong); z-index: 1; }
+  .step.done .bar { background: var(--accent); }
+  .step:last-child .bar { display: none; }
+  .step .lbl { font-size: 10.5px; font-weight: 550; color: var(--text-3); }
+  .step.done .lbl, .step.current .lbl { color: var(--text); }
+  .stepper.cancelled .step .node { background: var(--surface-2); border-color: var(--border); color: var(--muted-dot); }
+  .stepper.cancelled .step .bar { background: var(--border); }
+
+  .cancel-note {
+    margin: 4px 16px 0; padding: 9px 11px; border-radius: var(--r-sm);
+    background: var(--danger-soft); color: var(--danger);
+    font-size: 12px; font-weight: 500; display: flex; gap: 8px; align-items: center;
+    border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
+  }
+
+  .detail-sect { padding: 14px 16px; border-top: 1px solid var(--border); }
+  .sect-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); font-weight: 600; margin-bottom: 10px; }
+
+  .item-row { display: flex; align-items: center; gap: 11px; padding: 6px 0; }
+  .item-ic { width: 34px; height: 34px; border-radius: 7px; background: var(--surface-3); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .item-name { font-size: 13px; font-weight: 550; }
+  .item-sku { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-top: 1px; }
+  .item-qty { margin-left: auto; font-size: 12px; color: var(--text-3); font-family: var(--mono); white-space: nowrap; }
+  .item-price { font-size: 13px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 78px; text-align: right; }
+
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 12.5px; }
+  .kv .k { color: var(--text-3); }
+  .kv .v { color: var(--text); text-align: right; font-weight: 500; }
+  .kv .v.mono { font-family: var(--mono); font-size: 12px; }
+
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; padding-top: 10px; margin-top: 6px; border-top: 1px dashed var(--border-strong); }
+  .total-row .k { font-size: 13px; font-weight: 600; }
+  .total-row .v { font-size: 17px; font-weight: 700; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+  .detail-actions { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--border); }
+  .detail-actions .btn { flex: 1; }
+
+  /* ============================================================
+     TICKETS VIEW
+     ============================================================ */
+  .ticket { padding: 0; margin-bottom: 14px; overflow: hidden; }
+  .ticket-top { display: flex; align-items: center; gap: 12px; padding: 15px 18px; }
+  .ticket-ic { width: 38px; height: 38px; border-radius: 9px; background: var(--warn-soft); color: var(--warn); display: grid; place-items: center; flex: none; border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent); }
+  .ticket-id { font-size: 14px; font-weight: 600; font-family: var(--mono); }
+  .ticket-desc { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+  .ticket-top .spacer { flex: 1; }
+  .ticket-body { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--border); background: var(--surface-2); }
+  .ticket-cell { padding: 12px 18px; border-right: 1px solid var(--border); }
+  .ticket-cell:last-child { border-right: none; }
+  .tc-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); font-weight: 600; }
+  .tc-v { font-size: 13px; font-weight: 550; margin-top: 4px; }
+  .tc-v.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .ticket-foot { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-top: 1px solid var(--border); }
+  .ticket-foot .note { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 7px; }
+  .ticket-foot .spacer { flex: 1; }
+
+  /* ============================================================
+     EMPTY STATES
+     ============================================================ */
+  .empty { text-align: center; padding: 56px 24px; }
+  .empty-ic { width: 46px; height: 46px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-3); margin: 0 auto 14px; }
+  .empty-title { font-size: 14.5px; font-weight: 600; }
+  .empty-desc { font-size: 12.5px; color: var(--text-3); margin-top: 4px; max-width: 320px; margin-inline: auto; }
+
+  /* ============================================================
+     ASSISTANT VIEW
+     ============================================================ */
+  .assistant-view.active { display: flex; flex-direction: column; height: 100%; }
+  .chat-wrap { flex: 1; overflow-y: auto; }
+  .chat { max-width: 780px; margin: 0 auto; padding: 26px 24px 20px; display: flex; flex-direction: column; gap: 18px; }
+
+  .msg { display: flex; gap: 12px; }
+  .msg-av { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+  .msg-av.user { background: #0f9d6b; color: #fff; }
+  .msg-av.bot  { background: var(--accent); color: var(--accent-fg); }
+  .msg-body { min-width: 0; flex: 1; }
+  .msg-name { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .msg-time { font-size: 10.5px; color: var(--text-3); font-weight: 450; font-family: var(--mono); }
+  .msg-text { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .msg.user .msg-text {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 9px 13px; border-radius: 3px 12px 12px 12px; display: inline-block;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* reasoning strip on bot message */
+  .reason-strip {
+    display: inline-flex; align-items: center; gap: 9px;
+    margin: 2px 0 10px;
+    padding: 6px 8px 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .reason-strip:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+  .reason-spark { color: var(--accent); display: grid; place-items: center; }
+  .reason-strip .rs-text { font-size: 12px; font-weight: 550; color: var(--text-2); }
+  .reason-strip:hover .rs-text { color: var(--accent-text); }
+  .reason-strip .rs-meta { font-size: 11px; color: var(--text-3); font-family: var(--mono); }
+  .reason-strip .rs-tools { display: flex; gap: -6px; }
+  .rs-chip { font-size: 10px; font-family: var(--mono); color: var(--text-3); background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
+
+  /* order card in chat */
+  .order-card { margin: 12px 0 4px; overflow: hidden; }
+  .oc-head { display: flex; align-items: center; gap: 11px; padding: 13px 15px; }
+  .oc-thumb { width: 40px; height: 40px; border-radius: 9px; background: var(--surface-3); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .oc-id { font-size: 13.5px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; gap: 8px; }
+  .oc-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+  .oc-head .spacer { flex: 1; }
+  .oc-items { border-top: 1px solid var(--border); padding: 6px 15px; }
+  .oc-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .oc-item + .oc-item { border-top: 1px dashed var(--border); }
+  .oc-item-ic { width: 30px; height: 30px; border-radius: 7px; background: var(--surface-3); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .oc-item-name { font-size: 12.5px; font-weight: 550; }
+  .oc-item-sku { font-size: 10.5px; color: var(--text-3); font-family: var(--mono); }
+  .oc-item-price { margin-left: auto; font-size: 12.5px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .oc-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; padding: 11px 15px; border-top: 1px solid var(--border); background: var(--surface-2); }
+  .oc-kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; }
+  .oc-kv .k { color: var(--text-3); }
+  .oc-kv .v { font-weight: 550; }
+  .oc-kv .v.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .oc-foot { display: flex; align-items: center; gap: 8px; padding: 11px 15px; border-top: 1px solid var(--border); }
+  .oc-total { font-family: var(--mono); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .oc-total small { font-size: 10.5px; color: var(--text-3); font-weight: 500; font-family: var(--sans); display: block; }
+  .oc-foot .spacer { flex: 1; }
+
+  /* follow-up chips */
+  .followups { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 32px; padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 12.5px; font-weight: 500;
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  .chip:hover { border-color: var(--accent-line); color: var(--accent-text); background: var(--accent-soft); }
+  .chip svg { color: var(--text-3); }
+  .chip:hover svg { color: var(--accent); }
+
+  /* composer */
+  .composer-wrap { flex: none; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 70%, transparent); backdrop-filter: blur(8px); }
+  .composer { max-width: 780px; margin: 0 auto; padding: 14px 24px 18px; }
+  .composer-box {
+    display: flex; align-items: flex-end; gap: 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    padding: 8px 8px 8px 14px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .composer-box input {
+    flex: 1; border: none; background: transparent; outline: none;
+    font-family: inherit; font-size: 14px; color: var(--text); padding: 6px 0;
+  }
+  .composer-box input::placeholder { color: var(--text-3); }
+  .send-btn { width: 34px; height: 34px; flex: none; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-fg); border: none; display: grid; place-items: center; cursor: pointer; }
+  .send-btn:hover { background: var(--accent-600); }
+  .composer-hint { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 11px; color: var(--text-3); justify-content: center; }
+  .kbd { font-family: var(--mono); font-size: 10.5px; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; color: var(--text-2); }
+
+  /* ============================================================
+     REASONING INSPECTOR (slide-over)
+     ============================================================ */
+  .scrim { position: fixed; inset: 0; background: rgba(10,12,17,.36); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 80; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .inspector {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 440px; max-width: 92vw;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    z-index: 90;
+    transform: translateX(100%);
+    transition: transform .24s cubic-bezier(.32,.72,0,1);
+    display: flex; flex-direction: column;
+  }
+  .inspector.open { transform: none; }
+  .insp-head { padding: 15px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 11px; flex: none; }
+  .insp-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .insp-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+  .insp-head .spacer { flex: 1; }
+  .insp-summary { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex: none; }
+  .insp-stat { flex: 1; }
+  .insp-stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; }
+  .insp-stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  .insp-stat .v small { font-size: 11px; color: var(--text-3); font-family: var(--sans); }
+
+  .timeline { flex: 1; overflow-y: auto; padding: 8px 18px 24px; }
+  .tl-step { position: relative; padding: 12px 0 12px 30px; }
+  .tl-step::before { content:""; position: absolute; left: 10px; top: 26px; bottom: -12px; width: 1.5px; background: var(--border); }
+  .tl-step:last-child::before { display: none; }
+  .tl-node {
+    position: absolute; left: 0; top: 12px;
+    width: 21px; height: 21px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--surface); border: 1.5px solid var(--border-strong);
+    color: var(--text-3); z-index: 2;
+  }
+  .tl-node.think { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+  .tl-node.tool  { border-color: var(--info); color: var(--info); background: var(--info-soft); }
+  .tl-node.done  { border-color: var(--ok); background: var(--ok); color: #fff; }
+
+  .tl-kind { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .tl-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--text-3); }
+  .tl-dur { font-size: 10.5px; color: var(--text-3); font-family: var(--mono); margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+  .tl-tick { color: var(--ok); display: inline-flex; }
+
+  .tl-think { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+  .tl-tool-name { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .tl-tool-name .paren { color: var(--text-3); font-weight: 400; }
+  .code-block {
+    margin-top: 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .code-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-bottom: 1px solid var(--border);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600;
+    cursor: pointer; user-select: none;
+  }
+  .code-head .chev { margin-left: auto; transition: transform .15s ease; color: var(--text-3); }
+  .code-head .bytes { font-family: var(--mono); text-transform: none; letter-spacing: 0; color: var(--text-3); font-weight: 500; }
+  .code-body { padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--text-2); white-space: pre; overflow-x: auto; }
+  .code-body.collapsed { display: none; }
+  .code-block.collapsed .chev { transform: rotate(-90deg); }
+  .tok-key { color: var(--accent-text); }
+  .tok-str { color: var(--ok); }
+  .tok-num { color: var(--info); }
+  .tok-punc { color: var(--text-3); }
+
+  .tl-final {
+    border: 1px solid var(--accent-line); background: var(--accent-soft);
+    border-radius: var(--r-sm); padding: 11px 13px; font-size: 12.5px; color: var(--text); line-height: 1.5;
+  }
+
+  /* toast */
+  .toast-zone { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--text); color: var(--surface);
+    padding: 10px 14px; border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 500;
+    animation: toast-in .25s cubic-bezier(.32,.72,0,1);
+  }
+  .toast .t-ic { color: #34c68a; display: grid; place-items: center; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* responsive */
+  @media (max-width: 1080px) {
+    .orders-grid { grid-template-columns: 1fr; }
+    .detail { position: static; }
+  }
+  @media (max-width: 860px) {
+    :root { --nav-w: 64px; }
+    .brand-name, .brand-sub, .nav-item span, .nav-label, .agent-meta { display: none; }
+    .brand { justify-content: center; padding: 0; }
+    .nav-item { justify-content: center; }
+    .nav-item .count { position: absolute; top: 3px; right: 3px; margin: 0; transform: scale(.85); }
+    .stat-row { grid-template-columns: 1fr; }
+    .ticket-body { grid-template-columns: 1fr 1fr; }
+    .switcher-name, .switcher-id { display: none; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 16px 14px 48px; }
+    .ticket-body { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 21V11"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Ledger</div>
+        <div class="brand-sub">Support Console</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Workspace</div>
+      <button class="nav-item active" data-view="orders" onclick="switchView('orders')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v5h5M9 12h6M9 16h6M9 8h2"/></svg>
+        <span>Orders</span>
+      </button>
+      <button class="nav-item" data-view="tickets" onclick="switchView('tickets')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M15 6v12"/></svg>
+        <span>Tickets</span>
+        <span class="count" id="ticketCount">1</span>
+      </button>
+      <button class="nav-item" data-view="assistant" onclick="switchView('assistant')">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-5.2A8 8 0 1 1 21 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg>
+        <span>Assistant</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="agent-card">
+        <div class="agent-av">RK</div>
+        <div class="agent-meta">
+          <div class="agent-name">Riya Kapoor</div>
+          <div class="agent-role">Support agent</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs">
+        <span>Console</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        <span class="cur" id="crumbCur">Orders</span>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" id="themeBtn" title="Toggle theme" onclick="toggleTheme()">
+          <svg id="iconSun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg id="iconMoon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+
+        <div class="switcher">
+          <button class="switcher-btn" id="switcherBtn" onclick="toggleMenu(event)">
+            <span class="cust-av" id="curAv">MI</span>
+            <span style="text-align:left">
+              <span class="switcher-name" id="curName">Meera Iyer</span><br/>
+              <span class="switcher-id mono" id="curId">CUS-002</span>
+            </span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="menu" id="custMenu">
+            <div class="menu-head">Viewing as customer</div>
+            <button class="menu-item" data-cust="CUS-001" onclick="selectCustomer('CUS-001')">
+              <span class="cust-av" style="background:#4f46e5">AS</span>
+              <span><span class="m-name">Aarav Sharma</span><br/><span class="m-sub mono">CUS-001 · Bengaluru</span></span>
+              <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+            <button class="menu-item sel" data-cust="CUS-002" onclick="selectCustomer('CUS-002')">
+              <span class="cust-av c2">MI</span>
+              <span><span class="m-name">Meera Iyer</span><br/><span class="m-sub mono">CUS-002 · Chennai</span></span>
+              <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+            <button class="menu-item" data-cust="CUS-003" onclick="selectCustomer('CUS-003')">
+              <span class="cust-av c3">KK</span>
+              <span><span class="m-name">Kabir Khan</span><br/><span class="m-sub mono">CUS-003 · Mumbai</span></span>
+              <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+      <!-- ============ ORDERS VIEW ============ -->
+      <section class="view active" id="view-orders">
+        <div class="wrap">
+          <div class="page-head">
+            <div>
+              <div class="page-title">Orders</div>
+              <div class="page-desc" id="ordersDesc">Order history for Meera Iyer · CUS-002</div>
+            </div>
+          </div>
+
+          <div class="stat-row" id="statRow"><!-- stats injected --></div>
+
+          <div class="orders-grid">
+            <div class="card" style="overflow:hidden">
+              <div class="list-head">
+                <span class="list-title">Order history</span>
+                <span class="spacer"></span>
+                <span class="badge st-cancelled" id="orderCountBadge"><span class="num">2</span> orders</span>
+              </div>
+              <div id="orderList"><!-- rows injected --></div>
+            </div>
+
+            <div class="card detail" id="orderDetail"><!-- detail injected --></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TICKETS VIEW ============ -->
+      <section class="view" id="view-tickets">
+        <div class="wrap">
+          <div class="page-head">
+            <div>
+              <div class="page-title">Tickets</div>
+              <div class="page-desc" id="ticketsDesc">Invoice-generation requests for Meera Iyer · CUS-002</div>
+            </div>
+          </div>
+          <div id="ticketList"><!-- tickets injected --></div>
+        </div>
+      </section>
+
+      <!-- ============ ASSISTANT VIEW ============ -->
+      <section class="view assistant-view" id="view-assistant">
+        <div class="chat-wrap">
+          <div class="chat" id="chatThread"><!-- chat injected --></div>
+        </div>
+        <div class="composer-wrap">
+          <div class="composer">
+            <div class="composer-box">
+              <input id="composerInput" type="text" placeholder="Ask about orders, invoices, delivery…" />
+              <button class="send-btn" title="Send">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+              </button>
+            </div>
+            <div class="composer-hint">
+              <span class="kbd">↵</span> to send
+              <span style="opacity:.5">·</span>
+              Assistant can call <span class="mono" style="color:var(--text-2)">list_orders</span>, <span class="mono" style="color:var(--text-2)">get_invoice</span> and 3 more tools
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ================= REASONING INSPECTOR ================= -->
+<div class="scrim" id="scrim" onclick="closeInspector()"></div>
+<aside class="inspector" id="inspector" aria-hidden="true">
+  <div class="insp-head">
+    <div class="reason-spark" style="width:28px;height:28px;border:1px solid var(--accent-line);border-radius:8px;background:var(--accent-soft)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.1 2.9L16 18l-4-2.8L8 18l1.1-5.3L5 9.8l5.1-1.9z"/></svg>
+    </div>
+    <div>
+      <div class="insp-title">Reasoning inspector</div>
+      <div class="insp-sub">ORD-1087 · 5 steps · 4 tool calls</div>
+    </div>
+    <span class="spacer"></span>
+    <button class="icon-btn" onclick="closeInspector()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="insp-summary">
+    <div class="insp-stat"><div class="k">Total time</div><div class="v">1.84<small>s</small></div></div>
+    <div class="insp-stat"><div class="k">Tool calls</div><div class="v">4</div></div>
+    <div class="insp-stat"><div class="k">Tokens</div><div class="v">2,410</div></div>
+    <div class="insp-stat"><div class="k">Status</div><div class="v" style="color:var(--ok)">OK</div></div>
+  </div>
+
+  <div class="timeline">
+    <!-- STEP 1: reasoning -->
+    <div class="tl-step">
+      <div class="tl-node think">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.1 2.9L16 18l-4-2.8L8 18l1.1-5.3L5 9.8l5.1-1.9z"/></svg>
+      </div>
+      <div class="tl-kind"><span class="tl-label">Reasoning</span><span class="tl-dur"><span class="tl-tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>0.41s</span></div>
+      <div class="tl-think">The customer wants the status of their backpack order and an invoice for it. I'll list their orders to find the one with a backpack, pull its details, check whether an invoice exists, and request one if it isn't ready yet.</div>
+    </div>
+
+    <!-- STEP 2: list_orders -->
+    <div class="tl-step">
+      <div class="tl-node tool"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+      <div class="tl-kind"><span class="tl-label">Tool call</span><span class="tl-dur"><span class="tl-tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>0.28s</span></div>
+      <div class="tl-tool-name">list_orders<span class="paren">(</span><span class="paren">)</span></div>
+      <div class="code-block">
+        <div class="code-head" onclick="toggleCode(this)">Arguments <span class="bytes">1 field</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body"><span class="tok-punc">{</span> <span class="tok-key">"customer_id"</span><span class="tok-punc">:</span> <span class="tok-str">"CUS-002"</span> <span class="tok-punc">}</span></div>
+      </div>
+      <div class="code-block collapsed">
+        <div class="code-head" onclick="toggleCode(this)">Result <span class="bytes">2 orders</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body collapsed"><span class="tok-punc">[</span>
+  <span class="tok-punc">{</span> <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1087"</span><span class="tok-punc">,</span> <span class="tok-key">"status"</span><span class="tok-punc">:</span> <span class="tok-str">"Processing"</span> <span class="tok-punc">},</span>
+  <span class="tok-punc">{</span> <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1095"</span><span class="tok-punc">,</span> <span class="tok-key">"status"</span><span class="tok-punc">:</span> <span class="tok-str">"Delivered"</span> <span class="tok-punc">}</span>
+<span class="tok-punc">]</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 3: get_order_details -->
+    <div class="tl-step">
+      <div class="tl-node tool"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+      <div class="tl-kind"><span class="tl-label">Tool call</span><span class="tl-dur"><span class="tl-tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>0.36s</span></div>
+      <div class="tl-tool-name">get_order_details<span class="paren">(order_id)</span></div>
+      <div class="code-block">
+        <div class="code-head" onclick="toggleCode(this)">Arguments <span class="bytes">1 field</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body"><span class="tok-punc">{</span> <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1087"</span> <span class="tok-punc">}</span></div>
+      </div>
+      <div class="code-block collapsed">
+        <div class="code-head" onclick="toggleCode(this)">Result <span class="bytes">6 fields</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body collapsed"><span class="tok-punc">{</span>
+  <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1087"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"status"</span><span class="tok-punc">:</span> <span class="tok-str">"Processing"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"placed"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-07"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"eta"</span><span class="tok-punc">:</span> <span class="tok-str">"2026-08-12"</span><span class="tok-punc">,</span>
+  <span class="tok-key">"items"</span><span class="tok-punc">:</span> <span class="tok-num">2</span><span class="tok-punc">,</span>
+  <span class="tok-key">"total"</span><span class="tok-punc">:</span> <span class="tok-num">3398.00</span>
+<span class="tok-punc">}</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 4: get_invoice -->
+    <div class="tl-step">
+      <div class="tl-node tool"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+      <div class="tl-kind"><span class="tl-label">Tool call</span><span class="tl-dur"><span class="tl-tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>0.31s</span></div>
+      <div class="tl-tool-name">get_invoice<span class="paren">(order_id)</span></div>
+      <div class="code-block">
+        <div class="code-head" onclick="toggleCode(this)">Arguments <span class="bytes">1 field</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body"><span class="tok-punc">{</span> <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1087"</span> <span class="tok-punc">}</span></div>
+      </div>
+      <div class="code-block collapsed">
+        <div class="code-head" onclick="toggleCode(this)">Result <span class="bytes">2 fields</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body collapsed"><span class="tok-punc">{</span> <span class="tok-key">"status"</span><span class="tok-punc">:</span> <span class="tok-str">"unavailable"</span><span class="tok-punc">,</span> <span class="tok-key">"reason"</span><span class="tok-punc">:</span> <span class="tok-str">"order_not_fulfilled"</span> <span class="tok-punc">}</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 5: request_invoice -->
+    <div class="tl-step">
+      <div class="tl-node tool"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+      <div class="tl-kind"><span class="tl-label">Tool call</span><span class="tl-dur"><span class="tl-tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>0.48s</span></div>
+      <div class="tl-tool-name">request_invoice<span class="paren">(order_id)</span></div>
+      <div class="code-block">
+        <div class="code-head" onclick="toggleCode(this)">Arguments <span class="bytes">1 field</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body"><span class="tok-punc">{</span> <span class="tok-key">"order_id"</span><span class="tok-punc">:</span> <span class="tok-str">"ORD-1087"</span> <span class="tok-punc">}</span></div>
+      </div>
+      <div class="code-block collapsed">
+        <div class="code-head" onclick="toggleCode(this)">Result <span class="bytes">2 fields</span><svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="code-body collapsed"><span class="tok-punc">{</span> <span class="tok-key">"ticket_id"</span><span class="tok-punc">:</span> <span class="tok-str">"TKT-7002"</span><span class="tok-punc">,</span> <span class="tok-key">"status"</span><span class="tok-punc">:</span> <span class="tok-str">"queued"</span> <span class="tok-punc">}</span></div>
+      </div>
+    </div>
+
+    <!-- FINAL ANSWER -->
+    <div class="tl-step">
+      <div class="tl-node done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="tl-kind"><span class="tl-label">Final answer</span><span class="tl-dur">2,410 tok</span></div>
+      <div class="tl-final">Your UrbanTrail Backpack order is being processed and should arrive around 12 Aug. The invoice isn't ready yet because the order hasn't shipped — I've queued it for you as ticket <strong class="mono">TKT-7002</strong>, and it will be emailed the moment it's generated.</div>
+    </div>
+  </div>
+</aside>
+
+<div class="toast-zone" id="toastZone"></div>
+
+<script>
+/* ============================================================
+   Sample data (from the brief — exact names / amounts)
+   Money stored in paise (integer) for tabular alignment
+   ============================================================ */
+const INR = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
+const money = p => INR.format(p / 100);
+
+const ORDERS = {
+  'ORD-1042': {
+    id: 'ORD-1042', status: 'Shipped', stage: 2,
+    placed: '4 Aug 2026', delivery: 'Est. delivery 11 Aug 2026',
+    items: [{ name: 'NoiseBeat H100 Headphones', sku: 'NB-H100-BLK', qty: 1, price: 749800 }],
+    total: 749800, payment: 'Visa ending 1842',
+    address: '22 Lakeview Apartments, Koramangala, Bengaluru 560034',
+    invoice: 'Available'
+  },
+  'ORD-1038': {
+    id: 'ORD-1038', status: 'Cancelled', stage: -1,
+    placed: '28 Jul 2026', delivery: 'Cancelled 29 Jul 2026',
+    items: [{ name: 'BrewPro Coffee Maker', sku: 'BP-CM-STL', qty: 1, price: 429900 }],
+    total: 429900, payment: 'Visa ending 1842',
+    address: '22 Lakeview Apartments, Koramangala, Bengaluru 560034',
+    invoice: 'Not requested'
+  },
+  'ORD-1087': {
+    id: 'ORD-1087', status: 'Processing', stage: 1,
+    placed: '7 Aug 2026', delivery: 'Est. delivery 12 Aug 2026',
+    items: [
+      { name: 'UrbanTrail Backpack', sku: 'UT-BP-24L', qty: 1, price: 249900 },
+      { name: 'SteelSip Bottle', sku: 'SS-BTL-750', qty: 1, price: 89900 }
+    ],
+    total: 339800, payment: 'UPI account',
+    address: '8 Palm Grove, Adyar, Chennai 600020',
+    invoice: 'Queued', ticket: 'TKT-7002'
+  },
+  'ORD-1095': {
+    id: 'ORD-1095', status: 'Delivered', stage: 3,
+    placed: '2 Aug 2026', delivery: 'Delivered 8 Aug 2026',
+    items: [{ name: 'HomeChef Mixer', sku: 'HC-MIX-500', qty: 1, price: 519900 }],
+    total: 519900, payment: 'UPI account',
+    address: '8 Palm Grove, Adyar, Chennai 600020',
+    invoice: 'Available'
+  },
+  'ORD-1064': {
+    id: 'ORD-1064', status: 'Delivered', stage: 3,
+    placed: '30 Jul 2026', delivery: 'Delivered 3 Aug 2026',
+    items: [{ name: 'NorthPeak Rain Jacket', sku: 'NP-RJ-M', qty: 2, price: 319900 }],
+    total: 639800, payment: 'Mastercard ending 7710',
+    address: '51 Crescent Residency, Bandra West, Mumbai 400050',
+    invoice: 'Available'
+  }
+};
+
+const CUSTOMERS = {
+  'CUS-001': { name: 'Aarav Sharma', initials: 'AS', city: 'Bengaluru', avClass: '',   orders: ['ORD-1042', 'ORD-1038'], tickets: [] },
+  'CUS-002': { name: 'Meera Iyer',   initials: 'MI', city: 'Chennai',   avClass: 'c2', orders: ['ORD-1087', 'ORD-1095'], tickets: ['TKT-7002'] },
+  'CUS-003': { name: 'Kabir Khan',   initials: 'KK', city: 'Mumbai',    avClass: 'c3', orders: ['ORD-1064'], tickets: [] }
+};
+
+const TICKETS = {
+  'TKT-7002': { id: 'TKT-7002', order: 'ORD-1087', status: 'Queued', requested: '8 Aug 2026', items: 2, total: 339800 }
+};
+
+let currentCust = 'CUS-002';
+let selectedOrder = 'ORD-1087';
+
+/* ---------- SVG icon helpers ---------- */
+const ic = {
+  box:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg>',
+  item: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+  card: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+  pin:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  file: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 18h4"/></svg>',
+  download:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  mail: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg>',
+  truck:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h13v10H1zM14 8h4l3 3v2h-7z"/><circle cx="5.5" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/></svg>',
+  spark:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.1 2.9L16 18l-4-2.8L8 18l1.1-5.3L5 9.8l5.1-1.9z"/></svg>',
+  q:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"/></svg>',
+  edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  ticket:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M15 6v12"/></svg>',
+  clock:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  inbox:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>'
+};
+
+const STATUS_CLASS = { Shipped:'st-shipped', Processing:'st-processing', Delivered:'st-delivered', Cancelled:'st-cancelled', Queued:'st-queued' };
+
+function invBadge(state) {
+  if (state === 'Available') return `<span class="inv-badge inv-available">${ic.spark}Invoice ready</span>`;
+  if (state === 'Queued')    return `<span class="inv-badge inv-queued">${ic.clock}Invoice queued</span>`;
+  return `<span class="inv-badge inv-none">Invoice not requested</span>`;
+}
+
+/* ============================================================
+   Render: Orders
+   ============================================================ */
+function renderOrders() {
+  const cust = CUSTOMERS[currentCust];
+  document.getElementById('ordersDesc').textContent = `Order history for ${cust.name} · ${currentCust}`;
+
+  const orders = cust.orders.map(id => ORDERS[id]);
+  const spent = orders.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0);
+  const openInv = orders.filter(o => o.invoice === 'Queued').length;
+  const active = orders.filter(o => o.status === 'Processing' || o.status === 'Shipped').length;
+
+  document.getElementById('statRow').innerHTML = `
+    <div class="card stat"><div class="stat-k">${ic.box} Total orders</div><div class="stat-v">${orders.length}</div></div>
+    <div class="card stat"><div class="stat-k">${ic.truck} Active</div><div class="stat-v">${active}<small>in transit</small></div></div>
+    <div class="card stat"><div class="stat-k">${ic.card} Lifetime value</div><div class="stat-v">${money(spent)}</div></div>`;
+
+  document.getElementById('orderCountBadge').innerHTML = `<span class="num">${orders.length}</span>&nbsp;orders`;
+
+  document.getElementById('orderList').innerHTML = orders.map(o => {
+    const desc = o.items.map(i => `${i.qty}× ${i.name}`).join(', ');
+    return `<button class="order-row ${o.id === selectedOrder ? 'sel' : ''}" onclick="selectOrder('${o.id}')">
+      <span class="order-thumb">${ic.box}</span>
+      <span class="order-main">
+        <span class="order-id mono">${o.id}<span class="badge ${STATUS_CLASS[o.status]}"><span class="dot"></span>${o.status}</span></span>
+        <span class="order-desc">${desc} · ${o.placed}</span>
+      </span>
+      <span class="order-right">
+        <span class="order-total">${money(o.total)}</span>
+        ${invBadge(o.invoice)}
+      </span>
+    </button>`;
+  }).join('');
+
+  if (!cust.orders.includes(selectedOrder)) selectedOrder = cust.orders[0];
+  renderDetail();
+}
+
+function stepper(stage) {
+  const steps = ['Placed', 'Processing', 'Shipped', 'Delivered'];
+  if (stage === -1) {
+    return `<div class="stepper cancelled">${steps.map((s,i)=>`<div class="step"><div class="node">${i+1}</div><div class="bar"></div><div class="lbl">${s}</div></div>`).join('')}</div>
+      <div class="cancel-note">${ic.q}This order was cancelled — no further updates.</div>`;
+  }
+  return `<div class="stepper">${steps.map((s, i) => {
+    const cls = i < stage ? 'done' : (i === stage ? 'current' : '');
+    const inner = i < stage
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
+      : (i + 1);
+    return `<div class="step ${cls}"><div class="node">${inner}</div><div class="bar"></div><div class="lbl">${s}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function renderDetail() {
+  const o = ORDERS[selectedOrder];
+  const items = o.items.map(i => `
+    <div class="item-row">
+      <span class="item-ic">${ic.item}</span>
+      <span><span class="item-name">${i.name}</span><br/><span class="item-sku">${i.sku}</span></span>
+      <span class="item-qty">×${i.qty}</span>
+      <span class="item-price">${money(i.price * i.qty)}</span>
+    </div>`).join('');
+
+  const actions = o.invoice === 'Available'
+    ? `<button class="btn primary" onclick="toast('Invoice ${o.id}.pdf downloaded')">${ic.download} Download invoice</button>
+       <button class="btn" onclick="toast('Invoice emailed to customer')">${ic.mail} Email</button>`
+    : o.invoice === 'Queued'
+    ? `<button class="btn" disabled>${ic.clock} Invoice queued</button>
+       <button class="btn" onclick="switchView('tickets')">${ic.ticket} View ticket</button>`
+    : o.status === 'Cancelled'
+    ? `<button class="btn" disabled>${ic.file} Invoice unavailable</button>`
+    : `<button class="btn primary" onclick="toast('Invoice requested — ticket opened')">${ic.file} Request invoice</button>`;
+
+  document.getElementById('orderDetail').innerHTML = `
+    <div class="detail-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="detail-id">${o.id}</div>
+        <span class="badge ${STATUS_CLASS[o.status]}"><span class="dot"></span>${o.status}</span>
+      </div>
+      <div class="detail-sub">Placed ${o.placed} · ${o.delivery}</div>
+    </div>
+    ${stepper(o.stage)}
+    <div class="detail-sect">
+      <div class="sect-label">Items</div>
+      ${items}
+      <div class="total-row"><span class="k">Order total</span><span class="v">${money(o.total)}</span></div>
+    </div>
+    <div class="detail-sect">
+      <div class="sect-label">Payment & delivery</div>
+      <div class="kv"><span class="k">Payment</span><span class="v">${o.payment}</span></div>
+      <div class="kv"><span class="k">Ship to</span><span class="v" style="max-width:220px">${o.address}</span></div>
+      <div class="kv"><span class="k">Invoice</span><span class="v">${invBadge(o.invoice)}</span></div>
+    </div>
+    <div class="detail-actions">${actions}</div>`;
+}
+
+function selectOrder(id) {
+  selectedOrder = id;
+  document.querySelectorAll('.order-row').forEach(r => r.classList.remove('sel'));
+  renderOrders();
+}
+
+/* ============================================================
+   Render: Tickets
+   ============================================================ */
+function renderTickets() {
+  const cust = CUSTOMERS[currentCust];
+  document.getElementById('ticketsDesc').textContent = `Invoice-generation requests for ${cust.name} · ${currentCust}`;
+  const list = document.getElementById('ticketList');
+
+  if (!cust.tickets.length) {
+    list.innerHTML = `<div class="card empty">
+      <div class="empty-ic">${ic.inbox}</div>
+      <div class="empty-title">No open tickets</div>
+      <div class="empty-desc">${cust.name} has no pending invoice requests. Queued invoices from the Assistant will appear here.</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = cust.tickets.map(tid => {
+    const t = TICKETS[tid];
+    return `<div class="card ticket">
+      <div class="ticket-top">
+        <span class="ticket-ic">${ic.file}</span>
+        <span>
+          <span class="ticket-id">${t.id}</span>
+          <span class="ticket-desc">Invoice for order <span class="mono">${t.order}</span></span>
+        </span>
+        <span class="spacer"></span>
+        <span class="badge st-queued"><span class="dot"></span>${t.status}</span>
+      </div>
+      <div class="ticket-body">
+        <div class="ticket-cell"><div class="tc-k">Order</div><div class="tc-v mono">${t.order}</div></div>
+        <div class="ticket-cell"><div class="tc-k">Requested</div><div class="tc-v">${t.requested}</div></div>
+        <div class="ticket-cell"><div class="tc-k">Items</div><div class="tc-v mono">${t.items}</div></div>
+        <div class="ticket-cell"><div class="tc-k">Order total</div><div class="tc-v mono">${money(t.total)}</div></div>
+      </div>
+      <div class="ticket-foot">
+        <span class="note">${ic.clock} In queue since ${t.requested} · usually generated within 24h</span>
+        <span class="spacer"></span>
+        <button class="btn" onclick="switchView('orders'); selectOrder('${t.order}')">${ic.box} View order</button>
+        <button class="btn primary" onclick="generateInvoice('${t.id}','${t.order}')">${ic.file} Generate Invoice</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function generateInvoice(tid, oid) {
+  toast(`Invoice generated for ${oid}`);
+}
+
+/* ============================================================
+   Render: Assistant chat
+   ============================================================ */
+function orderCardHTML(o) {
+  const items = o.items.map(i => `
+    <div class="oc-item">
+      <span class="oc-item-ic">${ic.item}</span>
+      <span><span class="oc-item-name">${i.name}</span><br/><span class="oc-item-sku">${i.sku} · ×${i.qty}</span></span>
+      <span class="oc-item-price">${money(i.price * i.qty)}</span>
+    </div>`).join('');
+  return `<div class="card order-card">
+    <div class="oc-head">
+      <span class="oc-thumb">${ic.box}</span>
+      <span>
+        <span class="oc-id">${o.id} <span class="badge ${STATUS_CLASS[o.status]}"><span class="dot"></span>${o.status}</span></span>
+        <span class="oc-sub">${o.delivery}</span>
+      </span>
+    </div>
+    <div class="oc-items">${items}</div>
+    <div class="oc-meta">
+      <div class="oc-kv"><span class="k">Placed</span><span class="v">${o.placed}</span></div>
+      <div class="oc-kv"><span class="k">Payment</span><span class="v">${o.payment}</span></div>
+      <div class="oc-kv"><span class="k">Ship to</span><span class="v">Adyar, Chennai</span></div>
+      <div class="oc-kv"><span class="k">Invoice</span><span class="v">${o.invoice}${o.ticket ? ' · ' + o.ticket : ''}</span></div>
+    </div>
+    <div class="oc-foot">
+      <span class="oc-total">${money(o.total)}<small>Order total</small></span>
+      <span class="spacer"></span>
+      <button class="btn sm" onclick="toast('Tracking opened for ${o.id}')">${ic.truck} Track</button>
+      <button class="btn sm primary" onclick="switchView('tickets')">${ic.file} View invoice ticket</button>
+    </div>
+  </div>`;
+}
+
+function renderChat() {
+  const cust = CUSTOMERS[currentCust];
+  const thread = document.getElementById('chatThread');
+
+  if (currentCust !== 'CUS-002') {
+    thread.innerHTML = `<div class="empty" style="margin:auto">
+      <div class="empty-ic">${ic.spark}</div>
+      <div class="empty-title">Ask about ${cust.name}'s orders</div>
+      <div class="empty-desc">Try a natural-language question — the assistant can look up orders, check delivery, and handle invoices.</div>
+      <div class="followups" style="justify-content:center;margin-top:16px">
+        <button class="chip" onclick="toast('Demo: switch to Meera Iyer for the full conversation')">${ic.truck} Where is my latest order?</button>
+        <button class="chip" onclick="toast('Demo: switch to Meera Iyer for the full conversation')">${ic.file} Do I have any invoices ready?</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const o = ORDERS['ORD-1087'];
+  thread.innerHTML = `
+    <div class="msg user">
+      <span class="msg-av user">MI</span>
+      <div class="msg-body">
+        <div class="msg-name">Meera Iyer <span class="msg-time">10:32</span></div>
+        <div class="msg-text">Where is my backpack order and can I get an invoice for it?</div>
+      </div>
+    </div>
+
+    <div class="msg bot">
+      <span class="msg-av bot">${ic.spark}</span>
+      <div class="msg-body">
+        <div class="msg-name">Assistant <span class="msg-time">10:32</span></div>
+
+        <button class="reason-strip" onclick="openInspector()">
+          <span class="reason-spark">${ic.spark}</span>
+          <span class="rs-text">Show reasoning</span>
+          <span class="rs-tools"><span class="rs-chip">4 tools</span></span>
+          <span class="rs-meta">1.84s</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+
+        <div class="msg-text">Your <strong>UrbanTrail Backpack</strong> order is being processed and should arrive around <strong>12 Aug</strong>. The invoice isn't ready yet since the order hasn't shipped — I've queued it for you as ticket <span class="mono" style="font-weight:600">TKT-7002</span>.</div>
+
+        ${orderCardHTML(o)}
+
+        <div class="followups">
+          <button class="chip" onclick="toast('Live tracking: out for delivery soon')">${ic.truck} Where is my order?</button>
+          <button class="chip" onclick="toast('Invoice will be emailed once generated')">${ic.mail} Email me the invoice</button>
+          <button class="chip" onclick="toast('Address change flow opened')">${ic.edit} Change delivery address</button>
+          <button class="chip" onclick="toast('Showing all orders for Meera')">${ic.box} Show all my orders</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   View / customer / theme / panel controls
+   ============================================================ */
+function switchView(view) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.getElementById('crumbCur').textContent = view.charAt(0).toUpperCase() + view.slice(1);
+  document.getElementById('content').scrollTop = 0;
+  if (view === 'orders') renderOrders();
+  if (view === 'tickets') renderTickets();
+  if (view === 'assistant') renderChat();
+}
+
+function selectCustomer(id) {
+  currentCust = id;
+  const c = CUSTOMERS[id];
+  selectedOrder = c.orders[0];
+  document.getElementById('curName').textContent = c.name;
+  document.getElementById('curId').textContent = id;
+  const av = document.getElementById('curAv');
+  av.textContent = c.initials;
+  av.className = 'cust-av ' + c.avClass;
+  document.getElementById('ticketCount').textContent = c.tickets.length;
+  document.getElementById('ticketCount').style.display = c.tickets.length ? 'grid' : 'none';
+  document.querySelectorAll('.menu-item').forEach(m => m.classList.toggle('sel', m.dataset.cust === id));
+  document.getElementById('custMenu').classList.remove('open');
+  renderOrders(); renderTickets(); renderChat();
+}
+
+function toggleMenu(e) { e.stopPropagation(); document.getElementById('custMenu').classList.toggle('open'); }
+document.addEventListener('click', () => document.getElementById('custMenu').classList.remove('open'));
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const dark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', dark ? 'light' : 'dark');
+  document.getElementById('iconSun').style.display = dark ? 'block' : 'none';
+  document.getElementById('iconMoon').style.display = dark ? 'none' : 'block';
+}
+
+function openInspector() {
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('inspector').classList.add('open');
+  document.getElementById('inspector').setAttribute('aria-hidden', 'false');
+}
+function closeInspector() {
+  document.getElementById('scrim').classList.remove('open');
+  document.getElementById('inspector').classList.remove('open');
+  document.getElementById('inspector').setAttribute('aria-hidden', 'true');
+}
+function toggleCode(head) {
+  const block = head.parentElement;
+  block.classList.toggle('collapsed');
+  head.nextElementSibling.classList.toggle('collapsed');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInspector(); });
+
+let toastTimer;
+function toast(msg) {
+  const zone = document.getElementById('toastZone');
+  zone.innerHTML = `<div class="toast"><span class="t-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>${msg}</div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => zone.innerHTML = '', 2600);
+}
+
+/* composer demo */
+document.getElementById('composerInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.value.trim()) { toast('Message sent to assistant'); e.target.value = ''; }
+});
+
+/* init */
+selectCustomer('CUS-002');
+renderOrders();
+</script>
+</body>
+</html>

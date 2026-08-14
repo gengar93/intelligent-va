@@ -11,3 +11,5 @@ __pycache__/
 node_modules/
 .pnpm-store/
 dist/
+.claude/settings.local.json
+mockups/shots/

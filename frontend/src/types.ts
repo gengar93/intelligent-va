@@ -23,6 +23,7 @@ export interface OrderItem {
   quantity: number;
   unit_price_minor: number;
   line_total_minor: number;
+  image_url: string | null;
 }
 
 export interface Order {
@@ -56,6 +57,24 @@ export interface InvoiceTicket {
   total_minor: number;
 }
 
+export type ClosedTicketStatus = "completed" | "failed" | "cancelled";
+
+export interface ClosedInvoiceTicket {
+  ticket_id: string;
+  order_id: string;
+  status: ClosedTicketStatus;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  failure_reason: string | null;
+  order_status: OrderStatus;
+  currency: string;
+  item_count: number;
+  total_minor: number;
+  invoice_number: string | null;
+  document_url: string | null;
+}
+
 export interface InvoiceGeneration {
   state: "available";
   created: boolean;
@@ -68,13 +87,52 @@ export interface InvoiceGeneration {
   };
 }
 
+/* ---- Chat stream contract v2 ---- */
+
+export type SegmentKind = "reasoning" | "answer";
+
+export interface ReasoningTextStep {
+  kind: "reasoning";
+  text: string;
+}
+
+export interface ToolCallStep {
+  kind: "tool_call";
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface ToolResultStep {
+  kind: "tool_result";
+  id: string;
+  name: string;
+  result: unknown;
+  elapsed_ms: number;
+}
+
+export type ReasoningStep = ReasoningTextStep | ToolCallStep | ToolResultStep;
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  reasoning?: ReasoningStep[];
+  cards?: Order[];
+  followUps?: string[];
 }
 
 export interface ChatResponse {
   conversation_id: string;
   answer: string;
+}
+
+export interface ChatStreamCallbacks {
+  onStatus?: (message: string) => void;
+  onDelta?: (content: string) => void;
+  onSegment?: (kind: SegmentKind) => void;
+  onToolCall?: (step: ToolCallStep) => void;
+  onToolResult?: (step: ToolResultStep) => void;
+  onCards?: (orders: Order[]) => void;
+  onFollowUps?: (suggestions: string[]) => void;
 }
