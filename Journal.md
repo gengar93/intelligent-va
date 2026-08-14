@@ -369,6 +369,29 @@ this route (in both the seed data and freshly generated invoices), so the assist
 resolves. The Orders detail and the in-chat order card show a Download invoice action whenever
 an invoice is available.
 
+### 23. Mobile navigation drawer
+
+Replaced the crowded mobile title-bar controls with an accessible side drawer at widths up
+to 620px. The compact title bar now keeps the menu trigger, console title, and contextual
+New conversation action; Orders, Tickets, and Assistant navigation move into the drawer.
+The drawer footer contains the appearance control and a full customer switcher with names,
+IDs, and email addresses. Selecting a section or customer closes the drawer, and the drawer
+also supports backdrop dismissal, Escape, contained keyboard focus, focus restoration, and
+automatic cleanup when resizing to desktop. The mobile title is centered against the viewport,
+the drawer header omits redundant section copy, and its close button aligns vertically with
+the title-bar actions. Active navigation uses the same tinted color treatment as the rest of
+the app without an additional indicator. The existing desktop navigation is unchanged.
+
+Verification: frontend lint and production build pass. Browser checks at 320px and 375px
+confirmed a non-overflowing title bar, drawer navigation, theme and customer controls,
+successful customer switching, the Assistant-only New conversation action, and Escape
+dismissal. A 1280px check confirmed the desktop tabs, theme control, and customer switcher
+remain visible while the mobile trigger remains hidden. No browser console warnings or errors
+were reported. Follow-up browser measurement confirmed the mobile title lands exactly at the
+viewport midpoint and the drawer close and New conversation buttons share the same top offset.
+There is not yet an automated frontend interaction-test suite, so these drawer
+behaviors are currently covered by lint, TypeScript compilation, and browser verification.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -388,6 +411,8 @@ an invoice is available.
 - Chat with the assistant from the selected customer's dashboard.
 - Start a fresh conversation explicitly or by changing customers.
 - Switch between order, ticket, and assistant tabs without losing the current chat.
+- Use a compact, keyboard-accessible mobile drawer to navigate, change appearance, and switch
+  customers without crowding the title bar.
 - See invoice status on each order and refresh it immediately after ticket completion.
 - See live, tool-backed activity while the assistant works.
 - Inspect the assistant's streamed tool calls, arguments, and returned results inline, then

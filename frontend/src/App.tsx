@@ -18,6 +18,8 @@ import {
   ChatIcon,
   CheckIcon,
   ChevronDownIcon,
+  CloseIcon,
+  MenuIcon,
   MoonIcon,
   OrdersIcon,
   PlusIcon,
@@ -89,6 +91,10 @@ export default function App() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -97,6 +103,11 @@ export default function App() {
     setToast(message);
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const closeMobileNav = useCallback(() => {
+    setMobileSwitcherOpen(false);
+    setMobileNavOpen(false);
   }, []);
 
   useEffect(() => {
@@ -113,6 +124,61 @@ export default function App() {
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, [switcherOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const trigger = mobileNavTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => {
+      mobileDrawerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    });
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobileNav();
+        return;
+      }
+      if (event.key !== "Tab" || !mobileDrawerRef.current) return;
+
+      const focusable = Array.from(
+        mobileDrawerRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      trigger?.focus();
+    };
+  }, [closeMobileNav, mobileNavOpen]);
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia("(max-width: 620px)");
+    function handleViewportChange(event: MediaQueryListEvent) {
+      if (!event.matches) {
+        setMobileNavOpen(false);
+        setMobileSwitcherOpen(false);
+      }
+    }
+    mobileQuery.addEventListener("change", handleViewportChange);
+    return () => mobileQuery.removeEventListener("change", handleViewportChange);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -355,11 +421,23 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-inner">
+          <button
+            ref={mobileNavTriggerRef}
+            type="button"
+            className="icon-btn mobile-nav-trigger"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileNavOpen}
+            aria-controls="mobile-navigation"
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <MenuIcon />
+          </button>
+
           <div className="brand">
             <div className="brand-name">Support Console</div>
           </div>
 
-          <nav className="tabs" role="tablist" aria-label="Console sections">
+          <nav className="tabs desktop-tabs" role="tablist" aria-label="Console sections">
             {TABS.map((tab) => (
               <button
                 key={tab}
@@ -387,7 +465,7 @@ export default function App() {
           {activeTab === "assistant" ? (
             <button
               type="button"
-              className="icon-btn"
+              className="icon-btn new-conversation-btn"
               title="New conversation"
               aria-label="New conversation"
               onClick={resetConversation}
@@ -399,14 +477,14 @@ export default function App() {
 
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn desktop-theme-toggle"
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
           >
             {theme === "dark" ? <MoonIcon /> : <SunIcon />}
           </button>
 
-          <div className="switcher" ref={switcherRef}>
+          <div className="switcher desktop-switcher" ref={switcherRef}>
             <button
               type="button"
               className="switcher-btn"
@@ -465,6 +543,134 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {mobileNavOpen ? (
+        <div className="mobile-drawer-layer">
+          <button
+            type="button"
+            className="mobile-drawer-backdrop"
+            aria-label="Close navigation menu"
+            onClick={closeMobileNav}
+          />
+          <aside
+            id="mobile-navigation"
+            ref={mobileDrawerRef}
+            className="mobile-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-navigation-title"
+          >
+            <div className="mobile-drawer-head">
+              <h2 id="mobile-navigation-title">Support Console</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Close navigation menu"
+                onClick={closeMobileNav}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <nav className="mobile-drawer-nav" aria-label="Console sections">
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className="mobile-drawer-nav-item"
+                  aria-current={activeTab === tab ? "page" : undefined}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    closeMobileNav();
+                  }}
+                >
+                  <TabIcon tab={tab} />
+                  <span>{TAB_LABELS[tab]}</span>
+                  {tab === "tickets" && openTickets.length > 0 ? (
+                    <span className="count">{openTickets.length}</span>
+                  ) : null}
+                </button>
+              ))}
+            </nav>
+
+            <div className="mobile-drawer-footer">
+              <button
+                type="button"
+                className="mobile-setting-btn"
+                onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              >
+                <span className="mobile-setting-icon" aria-hidden="true">
+                  {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+                </span>
+                <span>
+                  <span className="mobile-setting-label">Appearance</span>
+                  <span className="mobile-setting-value">
+                    {theme === "dark" ? "Dark mode" : "Light mode"}
+                  </span>
+                </span>
+              </button>
+
+              <div className="mobile-customer-switcher">
+                <div className="eyebrow">Viewing as customer</div>
+                {mobileSwitcherOpen ? (
+                  <div className="mobile-customer-menu" role="menu" aria-label="Switch customer">
+                    {customers.map((customer) => (
+                      <button
+                        key={customer.customer_id}
+                        type="button"
+                        role="menuitem"
+                        className="menu-item"
+                        aria-current={customer.customer_id === selectedCustomerId}
+                        disabled={generatingTicketId !== null}
+                        onClick={() => {
+                          closeMobileNav();
+                          handleCustomerChange(customer.customer_id);
+                        }}
+                      >
+                        <span
+                          className={`avatar ${avatarClass(customer.customer_id, customers)}`}
+                          aria-hidden="true"
+                        >
+                          {initials(customer.name)}
+                        </span>
+                        <span className="mobile-customer-copy">
+                          <span className="nm">{customer.name}</span>
+                          <span className="id">{customer.customer_id} · {customer.email}</span>
+                        </span>
+                        <span className="tick" aria-hidden="true">
+                          <CheckIcon />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="mobile-customer-btn"
+                  aria-haspopup="menu"
+                  aria-expanded={mobileSwitcherOpen}
+                  disabled={isLoadingCustomers || customers.length === 0}
+                  onClick={() => setMobileSwitcherOpen((open) => !open)}
+                >
+                  <span
+                    className={`avatar ${avatarClass(selectedCustomerId, customers)}`}
+                    aria-hidden="true"
+                  >
+                    {selectedCustomer ? initials(selectedCustomer.name) : "··"}
+                  </span>
+                  <span className="mobile-customer-copy">
+                    <span className="nm">{selectedCustomer?.name ?? "Loading…"}</span>
+                    <span className="id">{selectedCustomer?.customer_id ?? ""}</span>
+                  </span>
+                  <span className="chev" aria-hidden="true">
+                    <ChevronDownIcon />
+                  </span>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       <main className={activeTab === "assistant" ? "main--full" : undefined}>
         {error ? (
