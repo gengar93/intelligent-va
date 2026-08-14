@@ -1,7 +1,9 @@
 """Create a fresh local SQLite database from the schema and seed files."""
 
 import argparse
+import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 
@@ -12,18 +14,30 @@ SEED_PATH = PROJECT_ROOT / "database" / "seed.sql"
 
 
 def build_database(database_path):
-    """Replace database_path with a freshly created and seeded database."""
+    """Atomically replace database_path with a freshly created seeded database."""
     database_path = Path(database_path)
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    database_path.unlink(missing_ok=True)
+    with tempfile.NamedTemporaryFile(
+        prefix=f".{database_path.name}.",
+        suffix=".tmp",
+        dir=database_path.parent,
+        delete=False,
+    ) as temporary_file:
+        temporary_path = Path(temporary_file.name)
 
-    with sqlite3.connect(database_path) as connection:
-        connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-        connection.executescript(SEED_PATH.read_text(encoding="utf-8"))
+    try:
+        with sqlite3.connect(temporary_path) as connection:
+            connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            connection.executescript(SEED_PATH.read_text(encoding="utf-8"))
 
-        violations = connection.execute("PRAGMA foreign_key_check").fetchall()
-        if violations:
-            raise RuntimeError(f"Foreign-key violations found: {violations}")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RuntimeError(f"Foreign-key violations found: {violations}")
+
+        os.replace(temporary_path, database_path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def main():

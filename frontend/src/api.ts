@@ -40,6 +40,13 @@ export function fetchCustomers(signal?: AbortSignal): Promise<Customer[]> {
   return getJson<Customer[]>("/api/customers", signal);
 }
 
+export async function resetDemoDatabase(): Promise<void> {
+  const response = await fetch("/api/demo/reset", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+}
+
 export function fetchCustomerOrders(
   customerId: string,
   signal?: AbortSignal,

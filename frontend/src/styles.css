@@ -221,6 +221,7 @@ button.mobile-nav-trigger { display: none; }
 }
 .icon-btn:hover { color: var(--ink); border-color: var(--hairline-2); }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.icon-btn:disabled { cursor: default; opacity: .55; }
 
 /* ---- Mobile navigation drawer ---- */
 .mobile-drawer-layer { display: none; }
@@ -685,6 +686,7 @@ main {
   .topbar-inner { position: relative; padding: 10px 16px; gap: 12px; }
   button.mobile-nav-trigger { display: grid; }
   nav.desktop-tabs,
+  .desktop-reset-button,
   .desktop-theme-toggle,
   .desktop-switcher { display: none; }
   .brand {
@@ -755,6 +757,7 @@ main {
   }
   .mobile-setting-btn:hover,
   .mobile-customer-btn:hover { border-color: var(--hairline-2); }
+  .mobile-setting-btn:disabled { cursor: default; opacity: .6; }
   .mobile-setting-btn:focus-visible,
   .mobile-customer-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mobile-setting-icon {
@@ -766,6 +769,7 @@ main {
   .mobile-setting-value { display: block; line-height: 1.25; }
   .mobile-setting-label { font-size: 13.5px; font-weight: 600; }
   .mobile-setting-value { font-size: 11px; color: var(--ink-3); }
+  .mobile-reset-btn .mobile-setting-icon { color: var(--stop); }
   .mobile-customer-switcher { position: relative; display: grid; gap: 7px; }
   .mobile-customer-copy { min-width: 0; flex: 1; line-height: 1.2; }
   .mobile-customer-copy .nm,

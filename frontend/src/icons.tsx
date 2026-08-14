@@ -53,6 +53,15 @@ export function CloseIcon({ size = 19 }: { size?: number }) {
   );
 }
 
+export function ResetIcon({ size = 17 }: { size?: number }) {
+  return (
+    <Icon size={size} strokeWidth={1.8}>
+      <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+      <path d="M20 4v7h-7" />
+    </Icon>
+  );
+}
+
 export function OrdersIcon() {
   return (
     <Icon>

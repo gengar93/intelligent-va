@@ -41,6 +41,48 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(len(response.json()), 3)
         self.assertEqual(response.json()[0]["customer_id"], "CUS-001")
 
+    def test_creates_seeded_database_when_missing(self):
+        database_path = Path(self.temporary_directory.name) / "fresh" / "orders.db"
+        client = TestClient(create_app(database_path, self.model_client))
+
+        response = client.get("/api/customers")
+
+        self.assertTrue(database_path.is_file())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 3)
+
+    def test_resets_demo_database_and_clears_conversations(self):
+        self.model_client.responses = [
+            {"role": "assistant", "content": "Your invoice is ready."}
+        ]
+        chat_response = self.client.post(
+            "/api/chat",
+            json={"customer_id": "CUS-001", "message": "Is my invoice ready?"},
+        )
+        conversation_id = chat_response.json()["conversation_id"]
+        self.client.post(
+            "/api/customers/CUS-002/tickets/TKT-7002/generate-invoice"
+        )
+
+        reset_response = self.client.post("/api/demo/reset")
+
+        self.assertEqual(reset_response.status_code, 200)
+        self.assertEqual(reset_response.json(), {"status": "reset"})
+        open_tickets = self.client.get("/api/customers/CUS-002/tickets")
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in open_tickets.json()],
+            ["TKT-7002"],
+        )
+        stale_conversation = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "What about now?",
+                "conversation_id": conversation_id,
+            },
+        )
+        self.assertEqual(stale_conversation.status_code, 404)
+
     def test_returns_customer_orders_and_items(self):
         response = self.client.get("/api/customers/CUS-001/orders")
 

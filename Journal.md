@@ -392,10 +392,33 @@ viewport midpoint and the drawer close and New conversation buttons share the sa
 There is not yet an automated frontend interaction-test suite, so these drawer
 behaviors are currently covered by lint, TypeScript compilation, and browser verification.
 
+### 24. Live demo database reset
+
+Added a guarded `POST /api/demo/reset` endpoint and matching dashboard controls so a presenter
+can restore the original seeded records without restarting the API or frontend. The desktop
+header uses a compact reset icon, while the mobile drawer exposes a labeled Reset demo data
+action. After confirmation, the frontend aborts active chat work, resets local conversation and
+workspace state, reloads the first customer, returns to Orders, and shows a success toast. The
+backend atomically replaces the SQLite file and clears in-memory conversations; a generation
+counter prevents a streamed turn that began before the reset from restoring stale history.
+
+The API now creates a seeded database only when its configured file is missing, so the custom
+`scripts.run_api` launcher and its tests were removed. Normal development startup is the direct
+Uvicorn command and no longer destroys demo changes on every server restart. The standalone
+`scripts.reset_database` command remains available for terminal use.
+
+Verification: all 96 Python tests pass, including new coverage for missing-database startup,
+seed restoration, and conversation invalidation. Frontend lint and production build pass. A
+live browser flow generated an invoice, reset the demo, confirmed the original open ticket was
+restored, and verified both desktop and mobile reset controls with no console errors. The reset
+endpoint is intentionally unauthenticated for this local POC and must not be exposed publicly
+without access control.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
-- Reset the demo database automatically whenever the normal local API launcher starts.
+- Create the seeded database automatically when the API starts without one.
+- Reset demo data and conversations from the running dashboard without restarting the app.
 - List fictional customers.
 - Retrieve only the orders belonging to one customer.
 - Retrieve customer-scoped invoice snapshots and latest invoice ticket status.
@@ -442,14 +465,15 @@ Install the Python environment:
 uv sync
 ```
 
-Start the API in one terminal. This command resets the demo database before every run:
+Start the API in one terminal. It creates the seeded database if the file does not exist and
+otherwise preserves the current demo state:
 
 ```bash
-uv run python -m scripts.run_api
+uv run uvicorn order_support.api:app --reload
 ```
 
-Use `uv run python -m scripts.reset_database` to reset without starting the API. Directly
-starting `uvicorn order_support.api:app` intentionally preserves the current database.
+Use the dashboard's Reset demo data action while the app is running, or run
+`uv run python -m scripts.reset_database` to reset from a terminal.
 
 Install and start the dashboard in another terminal:
 
@@ -501,7 +525,8 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
   updates when valid wording changes.
 - The live evaluation baseline has only one run per scenario; repeated-run consistency,
   broader paraphrase coverage, human review, and a calibrated LLM judge are not implemented.
-- Authentication is not implemented; the customer selector is for fictional demo data.
+- Authentication is not implemented; the customer selector and destructive demo-reset endpoint
+  are only appropriate for local fictional demo data.
 
 ## Recommended next milestone
 

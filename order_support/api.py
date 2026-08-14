@@ -24,6 +24,7 @@ from order_support.models import (
     InvoiceTicketRead,
 )
 from order_support.repository import OrderRepository
+from scripts.reset_database import build_database
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -35,10 +36,15 @@ def _encode_stream_event(event):
 
 
 def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
+    database_path = Path(database_path).resolve()
+    if not database_path.is_file():
+        build_database(database_path)
+
     repository = OrderRepository(database_path)
     conversation_loop = None
     conversations = {}
     conversation_lock = Lock()
+    database_generation = 0
 
     def get_conversation_loop():
         nonlocal conversation_loop
@@ -79,6 +85,15 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
         version="0.1.0",
         description="Customer and order data for the support demo.",
     )
+
+    @application.post("/api/demo/reset")
+    def reset_demo_database():
+        nonlocal database_generation
+        with conversation_lock:
+            build_database(database_path)
+            conversations.clear()
+            database_generation += 1
+        return {"status": "reset"}
 
     @application.get("/api/customers", response_model=list[CustomerRead])
     def list_customers():
@@ -191,9 +206,11 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
 
     @application.post("/api/chat/stream")
     def stream_chat(request: ChatRequest):
+        nonlocal database_generation
         customer_id, message = validate_chat_request(request)
         with conversation_lock:
             get_session_history(customer_id, request.conversation_id)
+            turn_database_generation = database_generation
         conversation_id = request.conversation_id or str(uuid4())
 
         def generate_events():
@@ -220,10 +237,11 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
                         continue
 
                     with conversation_lock:
-                        conversations[conversation_id] = {
-                            "customer_id": customer_id,
-                            "history": event["history"],
-                        }
+                        if turn_database_generation == database_generation:
+                            conversations[conversation_id] = {
+                                "customer_id": customer_id,
+                                "history": event["history"],
+                            }
                     yield _encode_stream_event(
                         {
                             "type": "result",

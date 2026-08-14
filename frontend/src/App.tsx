@@ -7,6 +7,7 @@ import {
   fetchCustomers,
   fetchOpenTickets,
   generateInvoice,
+  resetDemoDatabase,
   streamChatMessage,
 } from "./api";
 import { AssistantView } from "./components/AssistantView";
@@ -23,6 +24,7 @@ import {
   MoonIcon,
   OrdersIcon,
   PlusIcon,
+  ResetIcon,
   SunIcon,
   TicketsIcon,
 } from "./icons";
@@ -87,6 +89,7 @@ export default function App() {
 
   const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState<string | null>(null);
+  const [isResettingDemo, setIsResettingDemo] = useState(false);
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -317,6 +320,48 @@ export default function App() {
     }
   }
 
+  async function handleResetDemoData() {
+    if (isResettingDemo || generatingTicketId !== null) return;
+    const confirmed = window.confirm(
+      "Reset all demo data? Generated invoices, ticket changes, and conversations will be removed.",
+    );
+    if (!confirmed) return;
+
+    setIsResettingDemo(true);
+    closeMobileNav();
+    chatRequestRef.current?.abort();
+    chatRequestRef.current = null;
+
+    try {
+      await resetDemoDatabase();
+      resetConversation();
+      setActiveTab("orders");
+      setError(null);
+      setTicketError(null);
+      setGeneratingTicketId(null);
+      setCustomerOrders(null);
+      setOpenTickets([]);
+      setClosedTickets([]);
+      setSelectedOrderId(null);
+      setSelectedCustomerId("");
+      setCustomers([]);
+      setIsLoadingCustomers(true);
+
+      const result = await fetchCustomers();
+      setCustomers(result);
+      if (result.length > 0) {
+        setIsLoadingOrders(true);
+        setSelectedCustomerId(result[0].customer_id);
+      }
+      showToast("Demo data restored");
+    } catch {
+      setError("The demo data could not be reset. Please try again.");
+    } finally {
+      setIsLoadingCustomers(false);
+      setIsResettingDemo(false);
+    }
+  }
+
   async function sendChatMessage(message: string) {
     const trimmed = message.trim();
     if (!trimmed || !selectedCustomerId || isSendingChat) return;
@@ -477,6 +522,17 @@ export default function App() {
 
           <button
             type="button"
+            className="icon-btn desktop-reset-button"
+            title="Reset demo data"
+            aria-label="Reset demo data"
+            disabled={isResettingDemo || generatingTicketId !== null}
+            onClick={handleResetDemoData}
+          >
+            <ResetIcon />
+          </button>
+
+          <button
+            type="button"
             className="icon-btn desktop-theme-toggle"
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
@@ -607,6 +663,23 @@ export default function App() {
                   <span className="mobile-setting-value">
                     {theme === "dark" ? "Dark mode" : "Light mode"}
                   </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="mobile-setting-btn mobile-reset-btn"
+                disabled={isResettingDemo || generatingTicketId !== null}
+                onClick={handleResetDemoData}
+              >
+                <span className="mobile-setting-icon" aria-hidden="true">
+                  <ResetIcon />
+                </span>
+                <span>
+                  <span className="mobile-setting-label">
+                    {isResettingDemo ? "Resetting demo data…" : "Reset demo data"}
+                  </span>
+                  <span className="mobile-setting-value">Restore the original records</span>
                 </span>
               </button>
 
