@@ -41,6 +41,29 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(len(response.json()), 3)
         self.assertEqual(response.json()[0]["customer_id"], "CUS-001")
 
+    def test_lists_safe_model_and_route_options(self):
+        response = self.client.get("/api/model-options")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["default_model"], "gemini-3-7-flash")
+        self.assertEqual(
+            [model["id"] for model in body["models"]],
+            [
+                "gemini-3-7-flash",
+                "glm-5-2",
+                "qwen-3-7-flash",
+                "gpt-5-6-luna",
+                "gpt-oss-120b",
+            ],
+        )
+        self.assertEqual(
+            body["models"][0]["routes"],
+            [{"id": "nitro", "label": "Nitro · Automatic"}],
+        )
+        self.assertNotIn("slug", body["models"][0])
+        self.assertNotIn("provider", body["models"][0]["routes"][0])
+
     def test_creates_seeded_database_when_missing(self):
         database_path = Path(self.temporary_directory.name) / "fresh" / "orders.db"
         client = TestClient(create_app(database_path, self.model_client))
@@ -402,6 +425,69 @@ class ApiTests(unittest.TestCase):
             {"detail": "Conversation belongs to a different customer"},
         )
         self.assertEqual(len(self.model_client.requests), 1)
+
+    def test_binds_a_conversation_to_its_model_and_route(self):
+        self.model_client.responses = [
+            {"role": "assistant", "content": "First response"}
+        ]
+        first_response = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Hello",
+                "model_id": "gemini-3-7-flash",
+                "route_id": "nitro",
+            },
+        )
+
+        response = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Continue",
+                "conversation_id": first_response.json()["conversation_id"],
+                "model_id": "glm-5-2",
+                "route_id": "nitro",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json(),
+            {"detail": "Conversation uses a different model configuration"},
+        )
+        self.assertEqual(len(self.model_client.requests), 1)
+
+    def test_rejects_unknown_or_blank_model_selections(self):
+        unknown_model = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Hello",
+                "model_id": "not-configured",
+            },
+        )
+        unknown_route = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Hello",
+                "route_id": "not-configured",
+            },
+        )
+        blank_model = self.client.post(
+            "/api/chat",
+            json={
+                "customer_id": "CUS-001",
+                "message": "Hello",
+                "model_id": "",
+            },
+        )
+
+        self.assertEqual(unknown_model.status_code, 422)
+        self.assertEqual(unknown_route.status_code, 422)
+        self.assertEqual(blank_model.status_code, 422)
+        self.assertEqual(self.model_client.requests, [])
 
     def test_returns_not_found_for_unknown_conversation(self):
         response = self.client.post(

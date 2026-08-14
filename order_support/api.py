@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 
-from order_support.config import OpenRouterSettings
+from order_support.config import OpenRouterSettings, load_model_catalog
 from order_support.conversation import ConversationLoop
 from order_support.invoice_pdf import render_invoice_pdf
 from order_support.model_client import OpenRouterChatClient
@@ -22,6 +22,7 @@ from order_support.models import (
     CustomerRead,
     InvoiceGenerationRead,
     InvoiceTicketRead,
+    ModelOptionsRead,
 )
 from order_support.repository import OrderRepository
 from scripts.reset_database import build_database
@@ -35,25 +36,38 @@ def _encode_stream_event(event):
     return json.dumps(event, ensure_ascii=False) + "\n"
 
 
-def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
+def create_app(
+    database_path: Path = DEFAULT_DATABASE_PATH,
+    model_client=None,
+    model_catalog=None,
+):
     database_path = Path(database_path).resolve()
     if not database_path.is_file():
         build_database(database_path)
 
+    model_catalog = model_catalog or load_model_catalog()
     repository = OrderRepository(database_path)
-    conversation_loop = None
+    conversation_loops = {}
+    openrouter_settings = None
     conversations = {}
     conversation_lock = Lock()
     database_generation = 0
 
-    def get_conversation_loop():
-        nonlocal conversation_loop
-        if conversation_loop is None:
+    def get_conversation_loop(model, route):
+        nonlocal openrouter_settings
+        key = (model.id, route.id)
+        if key not in conversation_loops:
             client = model_client
             if client is None:
-                client = OpenRouterChatClient(OpenRouterSettings.from_env())
-            conversation_loop = ConversationLoop(client, repository)
-        return conversation_loop
+                if openrouter_settings is None:
+                    openrouter_settings = OpenRouterSettings.from_env()
+                client = OpenRouterChatClient(
+                    openrouter_settings,
+                    model.slug,
+                    provider=route.provider,
+                )
+            conversation_loops[key] = ConversationLoop(client, repository)
+        return conversation_loops[key]
 
     def validate_chat_request(request):
         customer_id = request.customer_id.strip()
@@ -65,9 +79,13 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
             )
         if repository.get_customer_orders(customer_id) is None:
             raise HTTPException(status_code=404, detail="Customer not found")
-        return customer_id, message
+        try:
+            model, route = model_catalog.resolve(request.model_id, request.route_id)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return customer_id, message, model, route
 
-    def get_session_history(customer_id, conversation_id):
+    def get_session_history(customer_id, conversation_id, model_id, route_id):
         if conversation_id is None:
             return None
         session = conversations.get(conversation_id)
@@ -77,6 +95,11 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
             raise HTTPException(
                 status_code=409,
                 detail="Conversation belongs to a different customer",
+            )
+        if session["model_id"] != model_id or session["route_id"] != route_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Conversation uses a different model configuration",
             )
         return session["history"]
 
@@ -94,6 +117,24 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
             conversations.clear()
             database_generation += 1
         return {"status": "reset"}
+
+    @application.get("/api/model-options", response_model=ModelOptionsRead)
+    def get_model_options():
+        return {
+            "default_model": model_catalog.default_model,
+            "models": [
+                {
+                    "id": model.id,
+                    "label": model.label,
+                    "default_route": model.default_route,
+                    "routes": [
+                        {"id": route.id, "label": route.label}
+                        for route in model.routes
+                    ],
+                }
+                for model in model_catalog.models
+            ],
+        }
 
     @application.get("/api/customers", response_model=list[CustomerRead])
     def list_customers():
@@ -167,14 +208,19 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
 
     @application.post("/api/chat", response_model=ChatResponse)
     def chat(request: ChatRequest):
-        customer_id, message = validate_chat_request(request)
+        customer_id, message, model, route = validate_chat_request(request)
 
         with conversation_lock:
-            history = get_session_history(customer_id, request.conversation_id)
+            history = get_session_history(
+                customer_id,
+                request.conversation_id,
+                model.id,
+                route.id,
+            )
             conversation_id = request.conversation_id or str(uuid4())
 
             try:
-                loop = get_conversation_loop()
+                loop = get_conversation_loop(model, route)
             except ValueError as error:
                 raise HTTPException(
                     status_code=503,
@@ -197,6 +243,8 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
 
             conversations[conversation_id] = {
                 "customer_id": customer_id,
+                "model_id": model.id,
+                "route_id": route.id,
                 "history": result["history"],
             }
             return ChatResponse(
@@ -207,9 +255,14 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
     @application.post("/api/chat/stream")
     def stream_chat(request: ChatRequest):
         nonlocal database_generation
-        customer_id, message = validate_chat_request(request)
+        customer_id, message, model, route = validate_chat_request(request)
         with conversation_lock:
-            get_session_history(customer_id, request.conversation_id)
+            get_session_history(
+                customer_id,
+                request.conversation_id,
+                model.id,
+                route.id,
+            )
             turn_database_generation = database_generation
         conversation_id = request.conversation_id or str(uuid4())
 
@@ -219,9 +272,14 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
             # aborted request keeps the lock during the slow upstream call and blocks
             # the customer's next message.
             with conversation_lock:
-                history = get_session_history(customer_id, request.conversation_id)
+                history = get_session_history(
+                    customer_id,
+                    request.conversation_id,
+                    model.id,
+                    route.id,
+                )
                 try:
-                    loop = get_conversation_loop()
+                    loop = get_conversation_loop(model, route)
                 except ValueError:
                     loop = None
             if loop is None:
@@ -240,6 +298,8 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
                         if turn_database_generation == database_generation:
                             conversations[conversation_id] = {
                                 "customer_id": customer_id,
+                                "model_id": model.id,
+                                "route_id": route.id,
                                 "history": event["history"],
                             }
                     yield _encode_stream_event(

@@ -88,10 +88,29 @@ class InvoiceGenerationRead(BaseModel):
     invoice: GeneratedInvoiceRead
 
 
+class ModelRouteRead(BaseModel):
+    id: str
+    label: str
+
+
+class ModelOptionRead(BaseModel):
+    id: str
+    label: str
+    default_route: str
+    routes: list[ModelRouteRead]
+
+
+class ModelOptionsRead(BaseModel):
+    default_model: str
+    models: list[ModelOptionRead]
+
+
 class ChatRequest(BaseModel):
     customer_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
     conversation_id: str | None = None
+    model_id: str | None = None
+    route_id: str | None = None
 
 
 class ChatResponse(BaseModel):

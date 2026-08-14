@@ -20,9 +20,9 @@ class ModelClientTests(unittest.TestCase):
         client = OpenRouterChatClient(
             OpenRouterSettings(
                 api_key="test-key",
-                model="test/model",
                 base_url="https://example.test/v1",
             ),
+            "test/model:nitro",
             sdk_client=sdk_client,
         )
         messages = [{"role": "user", "content": "Hello"}]
@@ -32,11 +32,10 @@ class ModelClientTests(unittest.TestCase):
 
         self.assertEqual(result, {"role": "assistant", "content": "Done"})
         sdk_client.chat.completions.create.assert_called_once_with(
-            model="test/model",
+            model="test/model:nitro",
             messages=messages,
             tools=tools,
             tool_choice="auto",
-            parallel_tool_calls=False,
         )
 
     def test_streams_text_and_reassembles_the_assistant_message(self):
@@ -62,9 +61,9 @@ class ModelClientTests(unittest.TestCase):
         client = OpenRouterChatClient(
             OpenRouterSettings(
                 api_key="test-key",
-                model="test/model",
                 base_url="https://example.test/v1",
             ),
+            "test/model:nitro",
             sdk_client=sdk_client,
         )
 
@@ -85,11 +84,10 @@ class ModelClientTests(unittest.TestCase):
             ],
         )
         sdk_client.chat.completions.create.assert_called_once_with(
-            model="test/model",
+            model="test/model:nitro",
             messages=[],
             tools=[],
             tool_choice="auto",
-            parallel_tool_calls=False,
             stream=True,
         )
 
@@ -130,9 +128,9 @@ class ModelClientTests(unittest.TestCase):
         client = OpenRouterChatClient(
             OpenRouterSettings(
                 api_key="test-key",
-                model="test/model",
                 base_url="https://example.test/v1",
             ),
+            "test/model:nitro",
             sdk_client=sdk_client,
         )
 
@@ -158,14 +156,102 @@ class ModelClientTests(unittest.TestCase):
         client = OpenRouterChatClient(
             OpenRouterSettings(
                 api_key="test-key",
-                model="test/model",
                 base_url="https://example.test/v1",
             ),
+            "test/model:nitro",
             sdk_client=sdk_client,
         )
 
         with self.assertRaisesRegex(RuntimeError, "model request failed"):
             client.complete([], [])
+
+    def test_sends_an_explicit_provider_route_to_openrouter(self):
+        assistant_message = Mock()
+        assistant_message.model_dump.return_value = {
+            "role": "assistant",
+            "content": "Done",
+        }
+        sdk_client = Mock()
+        sdk_client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[SimpleNamespace(message=assistant_message)]
+        )
+        provider = {"only": ["Cerebras"], "allow_fallbacks": False}
+        client = OpenRouterChatClient(
+            OpenRouterSettings(
+                api_key="test-key",
+                base_url="https://example.test/v1",
+            ),
+            "test/model:nitro",
+            provider=provider,
+            sdk_client=sdk_client,
+        )
+
+        client.complete([], [])
+
+        sdk_client.chat.completions.create.assert_called_once_with(
+            model="test/model:nitro",
+            messages=[],
+            tools=[],
+            tool_choice="auto",
+            extra_body={"provider": provider},
+        )
+
+    def test_preserves_streamed_reasoning_details_for_tool_continuations(self):
+        sdk_client = Mock()
+        sdk_client.chat.completions.create.return_value = iter(
+            [
+                SimpleNamespace(
+                    choices=[
+                        SimpleNamespace(
+                            delta=SimpleNamespace(
+                                content=None,
+                                reasoning="hidden ",
+                                reasoning_details=[
+                                    {"index": 0, "type": "reasoning.text", "text": "plan "}
+                                ],
+                                tool_calls=None,
+                            )
+                        )
+                    ]
+                ),
+                SimpleNamespace(
+                    choices=[
+                        SimpleNamespace(
+                            delta=SimpleNamespace(
+                                content=None,
+                                reasoning="thought",
+                                reasoning_details=[
+                                    {"index": 0, "type": "reasoning.text", "text": "tools"}
+                                ],
+                                tool_calls=None,
+                            )
+                        )
+                    ]
+                ),
+            ]
+        )
+        client = OpenRouterChatClient(
+            OpenRouterSettings(
+                api_key="test-key",
+                base_url="https://example.test/v1",
+            ),
+            "test/model:nitro",
+            sdk_client=sdk_client,
+        )
+
+        events = list(client.stream_complete([], []))
+
+        self.assertEqual(
+            events[-1]["message"],
+            {
+                "role": "assistant",
+                "content": None,
+                "reasoning": "hidden thought",
+                "reasoning_details": [
+                    {"index": 0, "type": "reasoning.text", "text": "plan tools"}
+                ],
+            },
+        )
 
 
 if __name__ == "__main__":

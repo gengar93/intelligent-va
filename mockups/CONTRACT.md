@@ -1,6 +1,8 @@
 # Chat stream contract — v2 (Concept A build)
 
-`POST /api/chat/stream` — body `{customer_id, message, conversation_id | null}`.
+`POST /api/chat/stream` — body
+`{customer_id, message, conversation_id | null, model_id?, route_id?}`. Omitted model and
+route values use the defaults in `config/models.toml`.
 Response: NDJSON, one JSON event per line. Event order within a turn:
 
 ```
@@ -35,7 +37,11 @@ Client rules:
 
 - `OrderItemRead` gains `image_url: string | null` — a site-relative path like
   `/products/headphones.svg`, served from `frontend/public/products/`. All other REST
-  endpoints unchanged.
+  order and ticket endpoints are unchanged.
+- `GET /api/model-options` returns the safe model and route IDs and labels for selectors. It
+  deliberately omits upstream model slugs and provider-routing configuration.
+- `/api/chat` accepts the same optional `model_id` and `route_id` fields as the streaming
+  endpoint. A conversation remains bound to the model and route with which it started.
 
 ## Product image assets
 

@@ -1,6 +1,6 @@
 # Project Journal
 
-Last updated: 13 August 2026
+Last updated: 15 August 2026
 
 ## Goal
 
@@ -414,6 +414,32 @@ restored, and verified both desktop and mobile reset controls with no console er
 endpoint is intentionally unauthenticated for this local POC and must not be exposed publicly
 without access control.
 
+### 25. Config-driven OpenRouter model selection — backend
+
+Moved model choice out of `.env` and into the checked-in `config/models.toml` catalog. The
+catalog contains Gemini 3.7 Flash as the default plus GLM 5.2, Qwen 3.7 Flash, GPT-5.6 Luna,
+and GPT OSS 120B, all using their OpenRouter Nitro variants. Environment configuration now
+contains only the OpenRouter API key and optional base URL.
+
+Added `GET /api/model-options`, which exposes stable IDs and display labels without leaking
+upstream slugs or provider-routing details. Both chat endpoints accept optional `model_id` and
+`route_id`; omission remains compatible with the current frontend by selecting catalog
+defaults. Conversations are bound to their starting model and route so hidden reasoning and
+tool history cannot accidentally cross model configurations. The same selection is available
+to the evaluation runner through `--model` and `--route`.
+
+Each catalog route may contain a validated OpenRouter `provider` table, including `only`,
+`order`, fallback, throughput, latency, quantization, and privacy controls. The client passes
+that table through only on the selected route. It no longer universally disables parallel
+tool calls because not every configured model advertises that parameter. Streaming now
+reassembles and preserves OpenRouter reasoning fields for subsequent tool-call turns; these
+fields remain internal and are not exposed as chain-of-thought in the public API.
+
+Verification: all 104 Python tests pass. New tests cover the exact checked-in Nitro catalog,
+invalid catalog/default/provider data, safe option exposure, request validation, conversation
+binding, provider forwarding, and preservation of streamed reasoning details. Frontend model
+selection is intentionally deferred to the next milestone.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -430,6 +456,8 @@ without access control.
 - List customer-scoped open invoice tickets and atomically generate a mock invoice.
 - Produce lean recent-product candidates using an optional rolling date window.
 - Run a bounded model/tool loop while preserving the complete internal message history.
+- Select a configured OpenRouter model and optional provider route per conversation, with a
+  backward-compatible catalog default.
 - Continue follow-up conversations using earlier hidden tool results.
 - Chat with the assistant from the selected customer's dashboard.
 - Start a fresh conversation explicitly or by changing customers.
@@ -454,7 +482,7 @@ without access control.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 96 passing tests. The frontend passes linting and a TypeScript
+suite currently contains 104 passing tests. The frontend passes linting and a TypeScript
 production build.
 
 ## Running the project
@@ -501,6 +529,7 @@ Run the live deterministic evaluation catalog, or one matching scenario:
 ```bash
 uv run python -m scripts.run_evaluations
 uv run python -m scripts.run_evaluations --scenario "latest order"
+uv run python -m scripts.run_evaluations --model glm-5-2 --route nitro
 ```
 
 ## Current limitations
@@ -518,7 +547,10 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 - There is no tracking history, payment status, cancellation process, refund process, or
   return process.
 - Some chat turns take roughly 10–15 seconds; this is sequential multi-round tool calling
-  plus OpenRouter provider routing variance, not yet addressed by provider pinning.
+  plus OpenRouter provider routing variance. The backend now supports provider-pinned routes,
+  but the checked-in catalog currently defines only Nitro automatic routes.
+- The backend model catalog is not yet exposed through a frontend selector; the dashboard
+  continues to use the configured default model and route.
 - The dashboard and API currently run as separate development processes.
 - Tool selection and execution still happen before the useful final answer begins streaming.
 - Deterministic answer checks currently use explicit accepted phrases and can require careful
@@ -530,10 +562,12 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 
 ## Recommended next milestone
 
-Reduce chat tail latency by pinning OpenRouter provider routing and/or selecting a faster
-tool-capable model, since multi-round tool turns currently take 10–15 seconds. Separately, the
-invoice PDF now exists but bills from a placeholder seller with zero tax; a following milestone
-could model a real seller entity and tax, or integrate with an external billing system.
+Add the frontend model and provider-route selectors, loading options from
+`GET /api/model-options` and starting a fresh conversation when either choice changes. After
+that UI is measurable, compare the configured models and optionally add provider-pinned
+routes for lower tail latency. Separately, the invoice PDF now exists but bills from a
+placeholder seller with zero tax; a following milestone could model a real seller entity and
+tax, or integrate with an external billing system.
 
 ## Later roadmap
 

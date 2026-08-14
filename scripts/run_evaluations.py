@@ -3,7 +3,7 @@
 import argparse
 import json
 
-from order_support.config import OpenRouterSettings
+from order_support.config import OpenRouterSettings, load_model_catalog
 from order_support.conversation import ConversationLoop
 from order_support.evaluation import evaluate_turn
 from order_support.evaluation_scenarios import READ_ONLY_SCENARIOS
@@ -18,10 +18,26 @@ def main():
         "--scenario",
         help="Run only scenarios whose name contains this case-insensitive text.",
     )
+    parser.add_argument(
+        "--model",
+        help="Configured model id (defaults to config/models.toml).",
+    )
+    parser.add_argument(
+        "--route",
+        help="Configured route id (defaults to the selected model's default route).",
+    )
     arguments = parser.parse_args()
     repository = OrderRepository(DEFAULT_DATABASE_PATH)
     settings = OpenRouterSettings.from_env()
-    loop = ConversationLoop(OpenRouterChatClient(settings), repository)
+    catalog = load_model_catalog()
+    try:
+        model, route = catalog.resolve(arguments.model, arguments.route)
+    except ValueError as error:
+        parser.error(str(error))
+    loop = ConversationLoop(
+        OpenRouterChatClient(settings, model.slug, provider=route.provider),
+        repository,
+    )
     customer_order_ids = {
         customer["customer_id"]: {
             order["order_id"]
@@ -84,7 +100,12 @@ def main():
                 }
             )
 
-    output = {"model": settings.model, "reports": reports}
+    output = {
+        "model_id": model.id,
+        "model": model.slug,
+        "route_id": route.id,
+        "reports": reports,
+    }
     print(json.dumps(output, indent=2, ensure_ascii=False))
     raise SystemExit(0 if all(report["passed"] for report in reports) else 1)
 
