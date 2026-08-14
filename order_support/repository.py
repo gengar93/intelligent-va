@@ -323,7 +323,10 @@ class OrderRepository:
                 ),
             )
 
-            document_url = f"/mock-invoices/{invoice_number}.pdf"
+            document_url = (
+                f"/api/customers/{customer_id}"
+                f"/orders/{ticket_row['order_id']}/invoice.pdf"
+            )
             connection.execute(
                 """
                 INSERT INTO invoices (

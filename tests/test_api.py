@@ -66,6 +66,36 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json()[0]["ticket_id"], "TKT-7002")
         self.assertEqual(response.json()[0]["item_count"], 2)
 
+    def test_downloads_invoice_pdf_for_customer_owned_order(self):
+        response = self.client.get("/api/customers/CUS-001/orders/ORD-1042/invoice.pdf")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/pdf")
+        self.assertEqual(
+            response.headers["content-disposition"],
+            'attachment; filename="INV-2026-00481.pdf"',
+        )
+        self.assertTrue(response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(response.content), 1000)
+
+    def test_invoice_pdf_absent_or_foreign_returns_404(self):
+        no_invoice = self.client.get("/api/customers/CUS-001/orders/ORD-1038/invoice.pdf")
+        foreign = self.client.get("/api/customers/CUS-002/orders/ORD-1042/invoice.pdf")
+        unknown_order = self.client.get("/api/customers/CUS-001/orders/ORD-9999/invoice.pdf")
+
+        self.assertEqual(no_invoice.status_code, 404)
+        self.assertEqual(foreign.status_code, 404)
+        self.assertEqual(unknown_order.status_code, 404)
+
+    def test_generated_invoice_becomes_downloadable(self):
+        before = self.client.get("/api/customers/CUS-002/orders/ORD-1087/invoice.pdf")
+        self.client.post("/api/customers/CUS-002/tickets/TKT-7002/generate-invoice")
+        after = self.client.get("/api/customers/CUS-002/orders/ORD-1087/invoice.pdf")
+
+        self.assertEqual(before.status_code, 404)
+        self.assertEqual(after.status_code, 200)
+        self.assertTrue(after.content.startswith(b"%PDF-"))
+
     def test_lists_closed_invoice_tickets_with_outcome_details(self):
         completed = self.client.get("/api/customers/CUS-001/tickets/closed")
         failed = self.client.get("/api/customers/CUS-003/tickets/closed")
@@ -79,7 +109,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(completed_ticket["invoice_number"], "INV-2026-00481")
         self.assertEqual(
             completed_ticket["document_url"],
-            "/mock-invoices/INV-2026-00481.pdf",
+            "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
         self.assertEqual(completed_ticket["total_minor"], 749800)
 

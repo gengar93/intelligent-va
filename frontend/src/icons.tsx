@@ -200,6 +200,14 @@ export function BoxIcon({ size = 17, strokeWidth = 1.5 }: { size?: number; strok
   );
 }
 
+export function DownloadIcon({ size = 15, strokeWidth = 1.8 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 19h16" />
+    </Icon>
+  );
+}
+
 export function PlusIcon({ size = 17, strokeWidth = 1.9 }: { size?: number; strokeWidth?: number }) {
   return (
     <Icon size={size} strokeWidth={strokeWidth}>

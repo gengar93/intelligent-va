@@ -8,10 +8,11 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from order_support.config import OpenRouterSettings
 from order_support.conversation import ConversationLoop
+from order_support.invoice_pdf import render_invoice_pdf
 from order_support.model_client import OpenRouterChatClient
 from order_support.models import (
     ChatRequest,
@@ -92,6 +93,19 @@ def create_app(database_path: Path = DEFAULT_DATABASE_PATH, model_client=None):
         if result is None:
             raise HTTPException(status_code=404, detail="Customer not found")
         return result
+
+    @application.get("/api/customers/{customer_id}/orders/{order_id}/invoice.pdf")
+    def download_invoice_pdf(customer_id: str, order_id: str):
+        invoice = repository.get_order_invoice(customer_id, order_id)
+        if invoice is None:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        pdf_bytes = render_invoice_pdf(invoice)
+        filename = f"{invoice['invoice_number']}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @application.get(
         "/api/customers/{customer_id}/tickets",

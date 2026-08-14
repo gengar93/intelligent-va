@@ -47,6 +47,12 @@ export function fetchCustomerOrders(
   return getJson<CustomerOrders>(`/api/customers/${customerId}/orders`, signal);
 }
 
+export function invoicePdfUrl(customerId: string, orderId: string): string {
+  return `/api/customers/${encodeURIComponent(customerId)}/orders/${encodeURIComponent(
+    orderId,
+  )}/invoice.pdf`;
+}
+
 export function fetchOpenTickets(
   customerId: string,
   signal?: AbortSignal,

@@ -5,11 +5,13 @@ import {
   INVOICE_STATUS_LABELS,
   itemCount,
 } from "../format";
+import { invoicePdfUrl } from "../api";
 import {
   CancelIcon,
   CheckIcon,
   ChatIcon,
   ClockIcon,
+  DownloadIcon,
   InvoiceDocIcon,
   OrdersIcon,
   TicketsIcon,
@@ -91,14 +93,17 @@ function InvoiceFlag({ order }: { order: Order }) {
 
 function OrderDetail({
   order,
+  customerId,
   onGoToTickets,
   onGoToAssistant,
 }: {
   order: Order;
+  customerId: string;
   onGoToTickets: () => void;
   onGoToAssistant: () => void;
 }) {
   const hasTicket = order.invoice_status === "queued" || order.invoice_status === "in_progress";
+  const invoiceReady = order.invoice_status === "available";
   return (
     <section className="panel" aria-labelledby="order-detail-heading">
       <div className="panel-head">
@@ -152,7 +157,15 @@ function OrderDetail({
           <div className="totals-pad" />
         </div>
         <div className="actions-row">
-          {hasTicket ? (
+          {invoiceReady ? (
+            <a
+              className="btn btn-primary"
+              href={invoicePdfUrl(customerId, order.order_id)}
+              download
+            >
+              <DownloadIcon /> Download invoice
+            </a>
+          ) : hasTicket ? (
             <button type="button" className="btn btn-primary" onClick={onGoToTickets}>
               <TicketsIcon /> View invoice ticket
             </button>
@@ -247,6 +260,7 @@ export function OrdersView({
             {selectedOrder ? (
               <OrderDetail
                 order={selectedOrder}
+                customerId={customer.customer_id}
                 onGoToTickets={onGoToTickets}
                 onGoToAssistant={onGoToAssistant}
               />

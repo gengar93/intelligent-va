@@ -355,6 +355,20 @@ dashboard allows — can no longer hold the lock and delay the customer's next m
 turns (roughly 10–15 seconds) remain dominated by sequential multi-round tool calling and by
 provider routing variance for the configured flash model, neither of which is a defect.
 
+### 22. Downloadable invoice PDF
+
+Invoice generation now yields a real, downloadable PDF rather than a placeholder URL. A new
+customer-scoped route, `GET /api/customers/{id}/orders/{order_id}/invoice.pdf`, renders the
+stored invoice snapshot on demand — no file is persisted — and returns it as an
+`application/pdf` attachment; a foreign customer or an order without an invoice returns 404.
+The PDF (`order_support/invoice_pdf.py`, rendered with `fpdf2`) uses the warm "Atelier" style:
+bundled IBM Plex fonts (SIL OFL, under `order_support/fonts/`) so the rupee glyph and
+appearance are identical on any host, an accent masthead, a line-item card, and totals. Long
+item names truncate with an ellipsis so a row can never overflow. `document_url` now points at
+this route (in both the seed data and freshly generated invoices), so the assistant's own link
+resolves. The Orders detail and the in-chat order card show a Download invoice action whenever
+an invoice is available.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -382,6 +396,7 @@ provider routing variance for the configured flash model, neither of which is a 
 - Receive database-backed order cards and suggested follow-up questions after a reply.
 - Render product images on orders and chat cards, with a placeholder when one is missing.
 - Review completed, failed, and cancelled invoice tickets in a Tickets history view.
+- Download a generated invoice as a styled PDF from the Orders detail or the in-chat card.
 - Cap each upstream model request at 30 seconds.
 - Read model-generated answers as they stream into the conversation.
 - Run deterministic, customer-isolated evaluations against the configured model.
@@ -391,7 +406,7 @@ provider routing variance for the configured flash model, neither of which is a 
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 93 passing tests. The frontend passes linting and a TypeScript
+suite currently contains 96 passing tests. The frontend passes linting and a TypeScript
 production build.
 
 ## Running the project
@@ -448,8 +463,9 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 - Orders have one delivery schedule; split shipments are unsupported.
 - A customer change must begin a fresh internal history so previous customer tool results do
   not remain in model context.
-- Invoice generation creates a database snapshot and mock URL, but does not create real PDF
-  content or perform billing/tax integration.
+- Invoice generation creates a database snapshot and a downloadable styled PDF, but does not
+  perform billing/tax integration: tax is always zero and the seller entity on the PDF is a
+  hard-coded placeholder.
 - There is no tracking history, payment status, cancellation process, refund process, or
   return process.
 - Some chat turns take roughly 10–15 seconds; this is sequential multi-round tool calling
@@ -465,9 +481,9 @@ uv run python -m scripts.run_evaluations --scenario "latest order"
 ## Recommended next milestone
 
 Reduce chat tail latency by pinning OpenRouter provider routing and/or selecting a faster
-tool-capable model, since multi-round tool turns currently take 10–15 seconds. Then decide
-whether the next invoice milestone should generate downloadable PDF content or integrate with
-an external billing system.
+tool-capable model, since multi-round tool turns currently take 10–15 seconds. Separately, the
+invoice PDF now exists but bills from a placeholder seller with zero tax; a following milestone
+could model a real seller entity and tax, or integrate with an external billing system.
 
 ## Later roadmap
 

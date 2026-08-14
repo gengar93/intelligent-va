@@ -143,6 +143,7 @@ function AssistantTurn({
   answer,
   cards,
   status,
+  customerId,
   onViewOrder,
 }: {
   steps: ReasoningStep[];
@@ -151,6 +152,7 @@ function AssistantTurn({
   answer: string | null;
   cards: Order[];
   status: string | null;
+  customerId: string;
   onViewOrder: (orderId: string) => void;
 }) {
   const hasAnswer = answer !== null && answer !== "";
@@ -174,7 +176,12 @@ function AssistantTurn({
         </div>
       ) : null}
       {cards.map((order) => (
-        <OrderCard key={order.order_id} order={order} onViewOrder={onViewOrder} />
+        <OrderCard
+          key={order.order_id}
+          order={order}
+          customerId={customerId}
+          onViewOrder={onViewOrder}
+        />
       ))}
     </div>
   );
@@ -246,6 +253,7 @@ export function AssistantView({
                   answer={message.content}
                   cards={message.cards ?? []}
                   status={null}
+                  customerId={customer.customer_id}
                   onViewOrder={onViewOrder}
                 />
                 {message === lastMessage && !liveTurn && (message.followUps?.length ?? 0) > 0 ? (
@@ -275,6 +283,7 @@ export function AssistantView({
               answer={liveTurn.answer}
               cards={liveTurn.cards}
               status={currentStatus ?? "Understanding your question…"}
+              customerId={customer.customer_id}
               onViewOrder={onViewOrder}
             />
           ) : null}

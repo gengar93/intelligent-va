@@ -58,7 +58,7 @@ class DatabaseTests(unittest.TestCase):
         )
         self.assertEqual(
             rows[0]["document_url"],
-            "/mock-invoices/INV-2026-00481.pdf",
+            "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
 
     def test_prevents_two_active_invoice_tickets_for_one_order(self):

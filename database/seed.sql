@@ -179,7 +179,7 @@ INSERT INTO invoices (
     749800,
     0,
     749800,
-    '/mock-invoices/INV-2026-00481.pdf'
+    '/api/customers/CUS-001/orders/ORD-1042/invoice.pdf'
 );
 
 INSERT INTO invoice_items (

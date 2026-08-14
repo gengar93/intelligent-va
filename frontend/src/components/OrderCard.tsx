@@ -1,5 +1,6 @@
+import { invoicePdfUrl } from "../api";
 import { deliveryLine, formatDate, formatMoney, INVOICE_STATUS_LABELS } from "../format";
-import { InvoiceDocIcon, ReceiptIcon, TruckIcon } from "../icons";
+import { DownloadIcon, InvoiceDocIcon, ReceiptIcon, TruckIcon } from "../icons";
 import type { InvoiceStatus, Order } from "../types";
 
 import { ProductThumb } from "./shared";
@@ -16,9 +17,11 @@ const INVOICE_TONE_CLASS: Record<InvoiceStatus, string> = {
 /** Receipt-style order card rendered under assistant messages. */
 export function OrderCard({
   order,
+  customerId,
   onViewOrder,
 }: {
   order: Order;
+  customerId: string;
   onViewOrder: (orderId: string) => void;
 }) {
   return (
@@ -74,6 +77,15 @@ export function OrderCard({
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onViewOrder(order.order_id)}>
           View order
         </button>
+        {order.invoice_status === "available" ? (
+          <a
+            className="btn btn-ghost btn-sm"
+            href={invoicePdfUrl(customerId, order.order_id)}
+            download
+          >
+            <DownloadIcon size={14} /> Download invoice
+          </a>
+        ) : null}
       </div>
     </article>
   );

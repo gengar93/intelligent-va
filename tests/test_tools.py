@@ -220,7 +220,7 @@ class OrderToolsTests(unittest.TestCase):
         self.assertEqual(available["state"], "available")
         self.assertEqual(
             available["invoice"]["document_url"],
-            "/mock-invoices/INV-2026-00481.pdf",
+            "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
         self.assertEqual(not_requested["state"], "not_requested")
 

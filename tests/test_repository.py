@@ -63,7 +63,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(invoice["total_minor"], 749800)
         self.assertEqual(
             invoice["document_url"],
-            "/mock-invoices/INV-2026-00481.pdf",
+            "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
         self.assertEqual(
             invoice["items"][0]["description"],
@@ -101,7 +101,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(available["state"], "available")
         self.assertEqual(
             available["invoice"]["document_url"],
-            "/mock-invoices/INV-2026-00481.pdf",
+            "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
         self.assertEqual(in_progress["state"], "in_progress")
         self.assertEqual(in_progress["ticket"]["ticket_id"], "TKT-7002")
@@ -142,7 +142,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(result["invoice"]["order_id"], "ORD-1087")
         self.assertEqual(
             result["invoice"]["document_url"],
-            "/mock-invoices/INV-2026-TEST.pdf",
+            "/api/customers/CUS-002/orders/ORD-1087/invoice.pdf",
         )
         self.assertEqual(self.repository.get_open_invoice_tickets("CUS-002"), [])
 
