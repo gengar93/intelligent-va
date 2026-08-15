@@ -488,6 +488,23 @@ Verification: all 108 Python tests pass. A live OpenRouter evaluation was not ru
 would make billable external model calls; GPT-5.6 Luna should be the primary target for the
 next live evaluation pass.
 
+### 28. Clickable invoice links in assistant answers
+
+Made the invoice response contract explicit: whenever `get_invoice` reports an available
+document, the assistant must include `[Download invoice](document_url)` using the exact
+database-backed URL returned by the tool. A raw path or a statement that the invoice is
+available without the link is no longer considered sufficient.
+
+Enabled links in final assistant Markdown while keeping the surface narrowly guarded. Only a
+relative invoice-PDF path for the currently selected customer and a single safe order-ID path
+segment becomes clickable; any other model-generated destination is rendered as plain text.
+Invoice links use the existing accent palette and remain legible in light and dark themes.
+
+Verification: all 108 Python tests pass, and frontend lint plus the TypeScript production build
+pass. The prompt has assertions for the exact download-link contract. A live GPT-5.6 Luna test
+with fictional order `ORD-1042` called `get_invoice`, returned no order card, and produced the
+expected `[Download invoice](/api/customers/CUS-001/orders/ORD-1042/invoice.pdf)` answer.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -525,6 +542,7 @@ next live evaluation pass.
 - Render product images on orders and chat cards, with a placeholder when one is missing.
 - Review completed, failed, and cancelled invoice tickets in a Tickets history view.
 - Download a generated invoice as a styled PDF from the Orders detail or the in-chat card.
+- Open a database-backed invoice download link directly from a focused assistant answer.
 - Cap each upstream model request at 30 seconds.
 - Read model-generated answers as they stream into the conversation.
 - Run deterministic, customer-isolated evaluations against the configured model.

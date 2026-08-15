@@ -300,6 +300,9 @@ class ConversationLoopTests(unittest.TestCase):
     def test_system_prompt_requires_fresh_invoice_status(self):
         self.assertIn("call get_invoice", SYSTEM_PROMPT)
         self.assertIn("Never report invoice status from conversation history", SYSTEM_PROMPT)
+        self.assertIn("[Download invoice](document_url)", SYSTEM_PROMPT)
+        self.assertIn("exact document_url returned by the tool", SYSTEM_PROMPT)
+        self.assertIn("Do not show only a raw URL", SYSTEM_PROMPT)
         self.assertIn("reason order_cancelled", SYSTEM_PROMPT)
 
     def test_system_prompt_requires_narration_and_metadata_block(self):

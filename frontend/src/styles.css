@@ -539,6 +539,13 @@ main {
 .turn-answer p + p, .turn-answer ul, .turn-answer ol { margin-top: 10px; }
 .turn-answer ul, .turn-answer ol { margin-bottom: 0; padding-left: 22px; }
 .turn-answer strong { font-weight: 600; }
+.turn-answer a {
+  color: var(--accent-deep);
+  font-weight: 600;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.turn-answer a:hover { color: var(--accent); }
 .turn-answer code {
   font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
   font-size: 13px; background: color-mix(in srgb, var(--hairline) 40%, transparent);

@@ -16,7 +16,7 @@ import type {
 
 import { OrderCard } from "./OrderCard";
 
-const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br"];
+const MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li", "code", "br", "a"];
 
 /** The in-flight assistant turn, updated live as stream events arrive. */
 export interface LiveTurn {
@@ -27,9 +27,32 @@ export interface LiveTurn {
   followUps: string[];
 }
 
-function AssistantMarkdown({ children }: { children: string }) {
+function isSafeInvoiceHref(href: string | undefined, customerId: string | undefined): boolean {
+  if (!href || !customerId) return false;
+
+  const prefix = `/api/customers/${encodeURIComponent(customerId)}/orders/`;
+  const suffix = "/invoice.pdf";
+  if (!href.startsWith(prefix) || !href.endsWith(suffix)) return false;
+
+  const orderId = href.slice(prefix.length, -suffix.length);
+  return /^[A-Za-z0-9_-]+$/.test(orderId);
+}
+
+function AssistantMarkdown({ children, customerId }: { children: string; customerId?: string }) {
   return (
-    <ReactMarkdown allowedElements={MARKDOWN_ELEMENTS} skipHtml unwrapDisallowed>
+    <ReactMarkdown
+      allowedElements={MARKDOWN_ELEMENTS}
+      components={{
+        a: ({ href, children: linkText }) =>
+          isSafeInvoiceHref(href, customerId) ? (
+            <a href={href}>{linkText}</a>
+          ) : (
+            <>{linkText}</>
+          ),
+      }}
+      skipHtml
+      unwrapDisallowed
+    >
       {children}
     </ReactMarkdown>
   );
@@ -162,12 +185,12 @@ function AssistantTurn({
       {live ? <TurnSteps steps={steps} /> : <TraceDisclosure steps={steps} />}
       {live && liveBuffer.trim() ? (
         <div className="turn-answer">
-          <AssistantMarkdown>{liveBuffer}</AssistantMarkdown>
+          <AssistantMarkdown customerId={customerId}>{liveBuffer}</AssistantMarkdown>
         </div>
       ) : null}
       {hasAnswer ? (
         <div className="turn-answer">
-          <AssistantMarkdown>{answer}</AssistantMarkdown>
+          <AssistantMarkdown customerId={customerId}>{answer}</AssistantMarkdown>
         </div>
       ) : null}
       {live && status && !hasAnswer && !liveBuffer.trim() ? (
