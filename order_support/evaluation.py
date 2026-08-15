@@ -19,6 +19,7 @@ ORDER_ID_PATTERN = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
 class TurnExpectation:
     prompt: str
     required_tools: tuple[str, ...] = ()
+    forbidden_tools: tuple[str, ...] = ()
     required_fact_groups: tuple[tuple[str, ...], ...] = ()
     forbidden_phrases: tuple[str, ...] = ()
 
@@ -80,6 +81,15 @@ def evaluate_turn(
             EvaluationFailure(
                 "unsupported_tool",
                 f"Observed tools outside the support allowlist: {unexpected_tools}",
+            )
+        )
+
+    used_forbidden_tools = sorted(set(tool_names) & set(expectation.forbidden_tools))
+    if used_forbidden_tools:
+        report.failures.append(
+            EvaluationFailure(
+                "forbidden_tool",
+                f"Observed tools forbidden for this scenario: {used_forbidden_tools}",
             )
         )
 

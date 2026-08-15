@@ -10,21 +10,39 @@ from order_support.repository import OrderRepository
 from order_support.tools import TOOL_DEFINITIONS, OrderTools
 
 
-SYSTEM_PROMPT = """You are a concise order support assistant.
+SYSTEM_PROMPT = """You are a concise assistant for the selected customer's orders and invoices.
 
-The application has already selected the customer. The available tools are restricted to
-that customer, so never ask for or invent a customer ID.
+The application has already selected the customer. Tools are restricted to that customer,
+so never ask for, expose, or invent a customer ID.
 
-Use tools for every customer-specific fact. Do not rely on general knowledge for order data.
-For a product reference such as "headphones", call get_recent_product_candidates, compare
-the user's wording with candidate names and descriptions, and then call get_order_details
-with the matching order_id. If multiple candidates are plausible, ask a focused clarifying
-question. If none match, say so plainly.
+SUPPORTED CAPABILITIES
+- List the customer's orders and identify an order by order ID or purchased product.
+- Report recorded order status, dates, delivery address, payment method, items, quantities,
+  prices, currency, and totals.
+- Check invoice availability or request status and provide an available download URL.
+- Request or retry invoice generation when the order is eligible. This is the only supported
+  write action.
+
+OUT OF SCOPE
+- Changing, cancelling, returning, refunding, rescheduling, or otherwise editing an order.
+- Editing an address or payment method, emailing an invoice, contacting a carrier or seller,
+  recommending products, or performing any other action not listed above.
+- Answering questions unrelated to this customer's orders and invoices.
+
+For an entirely unrelated request, do not call tools or answer the unrelated question. Give
+one brief boundary statement and say what order or invoice information you can help with. For
+an order-related but unsupported request, clearly say you cannot perform it; offer at most one
+relevant supported alternative. If a request mixes supported and unsupported parts, handle
+only the supported part and state the limitation. Never imply that an unsupported action was
+completed. Do not invent policies, capabilities, or facts that are absent from tool results.
+
+Use tools for every customer-specific fact. For a product reference such as "headphones",
+call get_recent_product_candidates, compare the wording with candidate names and descriptions,
+and then call get_order_details with the matching order_id. If multiple candidates are
+plausible, ask one focused clarifying question. If none match, say so plainly.
 
 Use the complete conversation history, including earlier tool results, to understand
-follow-up references. Do not expose internal tool mechanics. Never claim to change an order,
-payment, delivery, or customer record. Invoice generation requests are the only supported
-write action.
+follow-up references. Do not expose internal tool mechanics.
 
 For every question about invoice availability or invoice-request status, call get_invoice
 to fetch fresh data, even if an earlier conversation turn contains an invoice or ticket
@@ -40,7 +58,8 @@ created because the order is cancelled.
 
 Before each tool call, first write one short sentence in plain, customer-friendly words
 saying what you are about to check and why (for example: "Let me find the order with your
-backpack."). Never mention internal tool or function names in visible text.
+backpack."). Never mention internal tool or function names in visible text. Keep the final
+answer direct: a focused fact usually needs only one or two sentences.
 
 End the final reply of every turn — the message that answers the customer, never a message
 that only precedes tool calls — with a fenced code block matching this pattern exactly:
@@ -49,11 +68,24 @@ that only precedes tool calls — with a fenced code block matching this pattern
 {"card_order_ids": [], "follow_ups": []}
 ```
 
-Set card_order_ids to the IDs of any orders (for example "ORD-1042") whose specific details
-your reply discusses, so the app can show them as order cards; leave it empty when no single
-order is the subject. Set follow_ups to 3 or 4 short questions, written in the customer's
-voice, that this customer would plausibly ask next. The block is machine-read and removed
-before your reply is shown, so the text before it must stand alone as a complete answer.
+ORDER CARD POLICY
+Set card_order_ids only when the customer explicitly asks to see an order, full details, a
+summary, or a receipt, or when the reply presents or compares multiple orders. Leave it empty
+for a focused question about one fact, including status, delivery date, address, payment
+method, item, price, total, or invoice; also leave it empty for clarification, unsupported
+requests, and unrelated requests. Fetching full details internally does not require a card.
+
+FOLLOW-UP POLICY
+Set follow_ups to zero to three short questions in the customer's voice. Every suggestion
+must be answerable using a supported capability above, relevant to the current order and its
+known state, and must not repeat information just answered. Never suggest changing or
+cancelling an order, editing an address or payment method, a return or refund, rescheduling,
+emailing an invoice, contacting another party, or an unrelated topic. Use an empty list after
+an unrelated request. After an unsupported order request, use either an empty list or one
+supported alternative. It is better to return fewer suggestions than a weak one.
+
+The block is machine-read and removed before the reply is shown, so the text before it must
+stand alone as a complete answer.
 """
 
 
@@ -65,14 +97,8 @@ TOOL_STATUS_MESSAGES = {
     "request_invoice": "Requesting invoice generation…",
 }
 
-DEFAULT_FOLLOW_UPS = [
-    "Where is my recent order?",
-    "Can I get an invoice for my order?",
-    "What did I order recently?",
-]
-
 MAX_CARDS = 3
-MAX_FOLLOW_UPS = 4
+MAX_FOLLOW_UPS = 3
 
 _METADATA_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```\s*$", re.DOTALL)
 
@@ -133,26 +159,14 @@ def _parse_tool_arguments(tool_call):
     return arguments if isinstance(arguments, dict) else {"_raw": raw_arguments}
 
 
-def _select_follow_ups(metadata, cards):
+def _select_follow_ups(metadata):
     if metadata is not None and isinstance(metadata.get("follow_ups"), list):
-        cleaned = [
+        return [
             suggestion.strip()
             for suggestion in metadata["follow_ups"]
             if isinstance(suggestion, str) and suggestion.strip()
-        ]
-        if cleaned:
-            return cleaned[:MAX_FOLLOW_UPS]
-
-    suggestions = []
-    for order in cards:
-        order_id = order["order_id"]
-        if order["status"] in {"processing", "shipped"}:
-            suggestions.append(f"When will {order_id} arrive?")
-        if order["invoice_status"] == "available":
-            suggestions.append(f"Can I download the invoice for {order_id}?")
-        elif order["invoice_status"] == "not_requested" and order["status"] != "cancelled":
-            suggestions.append(f"Can I get an invoice for {order_id}?")
-    return suggestions[:MAX_FOLLOW_UPS] if suggestions else list(DEFAULT_FOLLOW_UPS)
+        ][:MAX_FOLLOW_UPS]
+    return []
 
 
 class ConversationLoop:
@@ -198,7 +212,6 @@ class ConversationLoop:
         tools = OrderTools(self._repository, customer_id, **tool_kwargs)
 
         tool_rounds = 0
-        fallback_card_ids = []
         while True:
             assistant_message = None
             suppressor = _FenceSuppressor()
@@ -227,11 +240,11 @@ class ConversationLoop:
                 if not answer:
                     raise RuntimeError("The model returned neither tool calls nor an answer")
                 yield {"type": "segment", "kind": "answer"}
-                cards = self._hydrate_cards(customer_id, metadata, fallback_card_ids)
+                cards = self._hydrate_cards(customer_id, metadata)
                 yield {"type": "cards", "orders": cards}
                 yield {
                     "type": "follow_ups",
-                    "suggestions": _select_follow_ups(metadata, cards),
+                    "suggestions": _select_follow_ups(metadata),
                 }
                 yield {"type": "result", "answer": answer, "history": messages}
                 return
@@ -268,7 +281,6 @@ class ConversationLoop:
                     result_value = json.loads(tool_message["content"])
                 except json.JSONDecodeError:
                     result_value = tool_message["content"]
-                self._track_fallback_card(fallback_card_ids, tool_name, result_value)
                 yield {
                     "type": "tool_result",
                     "id": tool_call_id,
@@ -277,18 +289,15 @@ class ConversationLoop:
                     "elapsed_ms": elapsed_ms,
                 }
 
-    def _hydrate_cards(self, customer_id, metadata, fallback_card_ids):
+    def _hydrate_cards(self, customer_id, metadata):
         """Resolve requested card order IDs into full, database-backed order payloads."""
-        order_ids = None
+        order_ids = []
         if metadata is not None and isinstance(metadata.get("card_order_ids"), list):
             order_ids = [
                 order_id
                 for order_id in metadata["card_order_ids"]
                 if isinstance(order_id, str) and order_id.strip()
             ]
-        if order_ids is None:
-            order_ids = fallback_card_ids
-
         seen = set()
         orders = []
         for order_id in order_ids:
@@ -302,16 +311,6 @@ class ConversationLoop:
             if len(orders) >= MAX_CARDS:
                 break
         return orders
-
-    @staticmethod
-    def _track_fallback_card(fallback_card_ids, tool_name, result_value):
-        if tool_name != "get_order_details" or not isinstance(result_value, dict):
-            return
-        order = result_value.get("order")
-        if result_value.get("found") and isinstance(order, dict):
-            order_id = order.get("order_id")
-            if isinstance(order_id, str) and order_id:
-                fallback_card_ids.append(order_id)
 
     def _stream_model_completion(self, messages):
         request_messages = deepcopy(messages)

@@ -460,6 +460,34 @@ the old title-bar action, and no horizontal overflow. Model switching selected G
 showed the fresh-conversation toast. The 375px dark-mode pass confirmed the new surface and
 controls remain legible. No browser console errors were reported.
 
+### 27. Assistant scope, suggestions, and order-card guardrails
+
+Reworked the system prompt around a compact, explicit capability boundary. The assistant now
+distinguishes supported order and invoice questions, order-related but unsupported actions,
+mixed requests, and unrelated questions. It is instructed not to call tools or answer the
+unrelated content for an off-topic request, and it must not imply that unsupported changes
+such as cancellation, refund, rescheduling, address editing, or invoice emailing occurred.
+
+Follow-up suggestions are now optional rather than forced: the model may return zero to three,
+must ground each one in the supported capabilities and known order state, and must avoid both
+unsupported actions and facts already answered. An explicit empty list remains empty, and
+missing or malformed metadata no longer produces generic fallback suggestions.
+
+Order cards are now reserved for explicit requests to show an order, a broad order summary or
+receipt, and multi-order presentation or comparison. Focused answers about status, delivery
+date, address, payment method, an item, price, total, or invoice should remain short and omit
+the card. The backend no longer infers a card merely because `get_order_details` was used
+internally; only valid model metadata can request one.
+
+Set GPT-5.6 Luna as the checked-in default model for the demo. Added deterministic evaluation
+coverage for declining an unrelated cooking question without tool calls and answering a
+focused payment-method question, plus unit coverage for the capability policy, prompt-size
+ceiling, empty metadata behavior, and the three-suggestion limit.
+
+Verification: all 108 Python tests pass. A live OpenRouter evaluation was not run because it
+would make billable external model calls; GPT-5.6 Luna should be the primary target for the
+next live evaluation pass.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -492,6 +520,8 @@ controls remain legible. No browser console errors were reported.
   collapse the whole reasoning trace once the final answer is ready.
 - Read streamed answers and narration as live Markdown while tokens arrive.
 - Receive database-backed order cards and suggested follow-up questions after a reply.
+- Keep off-topic requests, unsupported actions, follow-up suggestions, and order-card display
+  within the documented order-and-invoice support boundary.
 - Render product images on orders and chat cards, with a placeholder when one is missing.
 - Review completed, failed, and cancelled invoice tickets in a Tickets history view.
 - Download a generated invoice as a styled PDF from the Orders detail or the in-chat card.
@@ -504,7 +534,7 @@ controls remain legible. No browser console errors were reported.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 104 passing tests. The frontend passes linting and a TypeScript
+suite currently contains 108 passing tests. The frontend passes linting and a TypeScript
 production build.
 
 ## Running the project
@@ -551,7 +581,7 @@ Run the live deterministic evaluation catalog, or one matching scenario:
 ```bash
 uv run python -m scripts.run_evaluations
 uv run python -m scripts.run_evaluations --scenario "latest order"
-uv run python -m scripts.run_evaluations --model glm-5-2 --route nitro
+uv run python -m scripts.run_evaluations --model gpt-5-6-luna --route nitro
 ```
 
 ## Current limitations
@@ -579,15 +609,18 @@ uv run python -m scripts.run_evaluations --model glm-5-2 --route nitro
   updates when valid wording changes.
 - The live evaluation baseline has only one run per scenario; repeated-run consistency,
   broader paraphrase coverage, human review, and a calibrated LLM judge are not implemented.
+- Scope and follow-up relevance still depend on model instruction-following. Follow-ups remain
+  free-form text rather than backend-enforced intent identifiers, so live multi-run evaluation
+  is still needed even though empty and missing metadata now fail safely.
 - Authentication is not implemented; the customer selector and destructive demo-reset endpoint
   are only appropriate for local fictional demo data.
 
 ## Recommended next milestone
 
-Compare the configured models with repeated evaluation runs and optionally add provider-pinned
-routes for lower tail latency. Separately, the invoice PDF now exists but bills from a
-placeholder seller with zero tax; a following milestone could model a real seller entity and
-tax, or integrate with an external billing system.
+Run the expanded evaluation catalog repeatedly against GPT-5.6 Luna, including human review of
+card display and follow-up relevance. If prompt-only follow-up controls remain inconsistent,
+replace free-form suggestions with backend-rendered supported intent identifiers. Separately,
+provider-pinned routes could reduce tail latency.
 
 ## Later roadmap
 

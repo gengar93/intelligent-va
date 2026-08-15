@@ -135,6 +135,23 @@ class EvaluationTests(unittest.TestCase):
             {"unsupported_tool", "forbidden_claim"},
         )
 
+    def test_rejects_tools_for_an_off_topic_scenario(self):
+        expectation = TurnExpectation(
+            prompt="How do I bake a cake?",
+            forbidden_tools=("list_orders", "get_order_details"),
+        )
+
+        report = self.evaluate(
+            expectation,
+            "I can only help with orders and invoices.",
+            [assistant_tool_call("list_orders", {})],
+        )
+
+        self.assertEqual(
+            {failure.code for failure in report.failures},
+            {"forbidden_tool"},
+        )
+
     def test_accepts_alternative_refusal_wording(self):
         expectation = TurnExpectation(
             prompt="Move my delivery.",
@@ -196,9 +213,11 @@ class EvaluationTests(unittest.TestCase):
             for turn in scenario.turns
         ]
 
-        self.assertGreaterEqual(len(READ_ONLY_SCENARIOS), 5)
+        self.assertGreaterEqual(len(READ_ONLY_SCENARIOS), 7)
         self.assertTrue(any("latest order" in prompt for prompt in prompts))
         self.assertTrue(any("Move my" in prompt for prompt in prompts))
+        self.assertTrue(any("bake" in prompt for prompt in prompts))
+        self.assertTrue(any("payment method" in prompt for prompt in prompts))
         self.assertTrue(any(len(scenario.turns) > 1 for scenario in READ_ONLY_SCENARIOS))
 
 

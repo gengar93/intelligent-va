@@ -307,6 +307,16 @@ class ConversationLoopTests(unittest.TestCase):
         self.assertIn("card_order_ids", SYSTEM_PROMPT)
         self.assertIn("follow_ups", SYSTEM_PROMPT)
 
+    def test_system_prompt_defines_scope_follow_ups_and_card_policy(self):
+        self.assertIn("SUPPORTED CAPABILITIES", SYSTEM_PROMPT)
+        self.assertIn("OUT OF SCOPE", SYSTEM_PROMPT)
+        self.assertIn("do not call tools or answer the unrelated question", SYSTEM_PROMPT)
+        self.assertIn("zero to three", SYSTEM_PROMPT)
+        self.assertIn("must not repeat information just answered", SYSTEM_PROMPT)
+        self.assertIn("Fetching full details internally does not require a card", SYSTEM_PROMPT)
+        self.assertIn("focused question about one fact", SYSTEM_PROMPT)
+        self.assertLess(len(SYSTEM_PROMPT), 7_000)
+
     def test_streaming_classifies_segments_and_hides_metadata_block(self):
         answer_content = (
             "All good.\n\n"
@@ -343,7 +353,7 @@ class ConversationLoopTests(unittest.TestCase):
         )
         loop = ConversationLoop(client, self.repository)
 
-        events = list(loop.stream_turn("CUS-001", "Where are my headphones?"))
+        events = list(loop.stream_turn("CUS-001", "Show my full headphones order"))
 
         streamed_text = "".join(
             event["content"] for event in events if event["type"] == "delta"
@@ -381,7 +391,7 @@ class ConversationLoopTests(unittest.TestCase):
         self.assertEqual(result["answer"], "All good.")
         self.assertEqual(result["history"][-1]["content"], answer_content)
 
-    def test_missing_metadata_falls_back_to_touched_orders(self):
+    def test_missing_metadata_does_not_infer_cards_or_follow_ups(self):
         loop, _ = self.make_loop(
             [
                 tool_call_message(
@@ -396,18 +406,9 @@ class ConversationLoopTests(unittest.TestCase):
         events = list(loop.stream_turn("CUS-001", "Show my headphones order"))
 
         cards = next(event for event in events if event["type"] == "cards")
-        self.assertEqual(
-            [order["order_id"] for order in cards["orders"]],
-            ["ORD-1042"],
-        )
+        self.assertEqual(cards["orders"], [])
         follow_ups = next(event for event in events if event["type"] == "follow_ups")
-        self.assertEqual(
-            follow_ups["suggestions"],
-            [
-                "When will ORD-1042 arrive?",
-                "Can I download the invoice for ORD-1042?",
-            ],
-        )
+        self.assertEqual(follow_ups["suggestions"], [])
         self.assertEqual(events[-1]["answer"], "Here is your order.")
 
     def test_explicit_empty_card_list_suppresses_fallback_cards(self):
@@ -437,6 +438,49 @@ class ConversationLoopTests(unittest.TestCase):
         follow_ups = next(event for event in events if event["type"] == "follow_ups")
         self.assertEqual(follow_ups["suggestions"], ["Tell me more?"])
         self.assertEqual(events[-1]["answer"], "You have two orders.")
+
+    def test_explicit_empty_follow_ups_remain_empty(self):
+        loop, _ = self.make_loop(
+            [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "I can only help with your orders and invoices.\n\n"
+                        "```json\n"
+                        '{"card_order_ids": [], "follow_ups": []}\n'
+                        "```"
+                    ),
+                }
+            ]
+        )
+
+        events = list(loop.stream_turn("CUS-001", "How do I bake a cake?"))
+
+        cards = next(event for event in events if event["type"] == "cards")
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(cards["orders"], [])
+        self.assertEqual(follow_ups["suggestions"], [])
+
+    def test_follow_ups_are_capped_at_three(self):
+        loop, _ = self.make_loop(
+            [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Here is the order summary.\n\n"
+                        "```json\n"
+                        '{"card_order_ids": [], "follow_ups": '
+                        '["One?", "Two?", "Three?", "Four?"]}\n'
+                        "```"
+                    ),
+                }
+            ]
+        )
+
+        events = list(loop.stream_turn("CUS-001", "Show my recent orders"))
+
+        follow_ups = next(event for event in events if event["type"] == "follow_ups")
+        self.assertEqual(follow_ups["suggestions"], ["One?", "Two?", "Three?"])
 
 
 if __name__ == "__main__":

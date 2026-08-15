@@ -46,7 +46,7 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["default_model"], "gemini-3-7-flash")
+        self.assertEqual(body["default_model"], "gpt-5-6-luna")
         self.assertEqual(
             [model["id"] for model in body["models"]],
             [

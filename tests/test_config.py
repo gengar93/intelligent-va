@@ -29,7 +29,7 @@ class ConfigTests(unittest.TestCase):
     def test_checked_in_catalog_contains_requested_nitro_models(self):
         catalog = load_model_catalog()
 
-        self.assertEqual(catalog.default_model, "gemini-3-7-flash")
+        self.assertEqual(catalog.default_model, "gpt-5-6-luna")
         self.assertEqual(
             {model.id: model.slug for model in catalog.models},
             {

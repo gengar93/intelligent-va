@@ -86,4 +86,40 @@ READ_ONLY_SCENARIOS = (
             ),
         ),
     ),
+    EvaluationScenario(
+        name="decline an unrelated question without order lookups",
+        customer_id="CUS-001",
+        turns=(
+            TurnExpectation(
+                prompt="How do I bake a chocolate cake?",
+                forbidden_tools=(
+                    "list_orders",
+                    "get_order_details",
+                    "get_recent_product_candidates",
+                    "get_invoice",
+                    "request_invoice",
+                ),
+                required_fact_groups=(("orders", "order"), ("invoices", "invoice")),
+                forbidden_phrases=(
+                    "preheat the oven",
+                    "cups of flour",
+                    "cake recipe",
+                ),
+            ),
+        ),
+    ),
+    EvaluationScenario(
+        name="answer a focused payment-method question",
+        customer_id="CUS-001",
+        turns=(
+            TurnExpectation(
+                prompt="What payment method did I use for my headphones?",
+                required_tools=(
+                    "get_recent_product_candidates",
+                    "get_order_details",
+                ),
+                required_fact_groups=(("Visa ending in 1842", "Visa", "1842"),),
+            ),
+        ),
+    ),
 )
