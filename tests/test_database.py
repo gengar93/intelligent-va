@@ -97,6 +97,37 @@ class DatabaseTests(unittest.TestCase):
             },
         )
 
+    def test_customer_has_two_distinct_monitor_orders_with_different_invoice_states(self):
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    o.order_id,
+                    p.name AS product_name,
+                    CASE
+                        WHEN i.invoice_id IS NOT NULL THEN 'available'
+                        WHEN t.ticket_id IS NOT NULL THEN t.status
+                        ELSE 'not_requested'
+                    END AS invoice_state
+                FROM orders AS o
+                JOIN order_items AS oi ON oi.order_id = o.order_id
+                JOIN products AS p ON p.product_id = oi.product_id
+                LEFT JOIN tickets AS t ON t.order_id = o.order_id
+                LEFT JOIN invoices AS i ON i.order_id = o.order_id
+                WHERE o.customer_id = 'CUS-004'
+                  AND p.name LIKE '%Monitor%'
+                ORDER BY o.order_id
+                """
+            ).fetchall()
+
+        self.assertEqual(
+            [tuple(row) for row in rows],
+            [
+                ("ORD-1130", "NovaView 27-inch 4K Monitor", "available"),
+                ("ORD-1132", "NovaView 24-inch FHD Monitor", "not_requested"),
+            ],
+        )
+
     def test_prevents_two_active_invoice_tickets_for_one_order(self):
         with self.connect() as connection, self.assertRaises(sqlite3.IntegrityError):
             connection.execute(

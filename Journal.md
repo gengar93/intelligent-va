@@ -528,6 +528,22 @@ pass. The seeded database was rebuilt successfully. A generated invoice PDF was 
 an image and visually checked for Order VA branding, US seller identity, US address and date
 formatting, dollar values, alignment, and legibility.
 
+### 30. Ambiguous monitor invoice demo data
+
+Added a second monitor product, the NovaView 24-inch FHD Monitor, alongside the existing
+NovaView 27-inch 4K Monitor. Sofia Rodriguez now owns both models in separate recent orders:
+`ORD-1130` has the 27-inch monitor and an available invoice, while `ORD-1132` has the 24-inch
+monitor and no invoice request. This creates a deliberate product-resolution ambiguity for
+demonstrating that Order VA can ask which monitor the customer means before handling an
+invoice request.
+
+The second model is a distinct row in the products table and reuses the established monitor
+thumbnail. The overall invoice distribution remains unchanged. A database regression test
+protects the two product names, order IDs, customer ownership, and differing invoice states.
+
+Verification: all 110 Python tests pass. Frontend linting and the TypeScript production build
+pass, and the seeded database rebuild succeeds.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -575,7 +591,7 @@ formatting, dollar values, alignment, and legibility.
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 109 passing tests. The frontend passes linting and a TypeScript
+suite currently contains 110 passing tests. The frontend passes linting and a TypeScript
 production build.
 
 ## Running the project

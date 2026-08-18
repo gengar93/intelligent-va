@@ -12,6 +12,7 @@ INSERT INTO customers (customer_id, name, email) VALUES
 INSERT INTO products (product_id, sku, name, description, image_url) VALUES
     ('PROD-HEADSET', 'NV-H100-BLK', 'Nova H100 Wireless Headset', 'Wireless over-ear headset with a noise-cancelling microphone', '/products/headphones.svg'),
     ('PROD-MONITOR', 'NV-M27-4K', 'NovaView 27-inch 4K Monitor', '27-inch 4K IPS monitor with USB-C connectivity', '/products/monitor.svg'),
+    ('PROD-MONITOR-24', 'NV-M24-FHD', 'NovaView 24-inch FHD Monitor', '24-inch Full HD IPS monitor with HDMI connectivity', '/products/monitor.svg'),
     ('PROD-KEYBOARD', 'NV-K80-RGB', 'NovaType K80 Mechanical Keyboard', 'Compact mechanical keyboard with hot-swappable switches', '/products/keyboard.svg'),
     ('PROD-MOUSE', 'NV-M60-WL', 'NovaPoint M60 Wireless Mouse', 'Ergonomic wireless mouse with programmable controls', '/products/mouse.svg'),
     ('PROD-WEBCAM', 'NV-CAM-4K', 'NovaCam 4K Webcam', '4K webcam with autofocus and dual microphones', '/products/webcam.svg'),
@@ -70,8 +71,7 @@ INSERT INTO order_items (order_item_id, order_id, product_id, quantity, unit_pri
     ('ITEM-1130-1', 'ORD-1130', 'PROD-MONITOR', 1, 32999),
     ('ITEM-1130-2', 'ORD-1130', 'PROD-WEBCAM', 1, 10999),
     ('ITEM-1131-1', 'ORD-1131', 'PROD-DOCK', 1, 15999),
-    ('ITEM-1132-1', 'ORD-1132', 'PROD-MOUSE', 1, 5999),
-    ('ITEM-1132-2', 'ORD-1132', 'PROD-KEYBOARD', 1, 8999),
+    ('ITEM-1132-1', 'ORD-1132', 'PROD-MONITOR-24', 1, 19999),
     ('ITEM-1133-1', 'ORD-1133', 'PROD-SPEAKERS', 1, 7999),
     ('ITEM-1140-1', 'ORD-1140', 'PROD-SSD', 2, 11999),
     ('ITEM-1141-1', 'ORD-1141', 'PROD-HEADSET', 1, 12999),
