@@ -18,7 +18,7 @@ class OrderToolsTests(unittest.TestCase):
         self.tools = OrderTools(
             self.repository,
             "CUS-001",
-            today_provider=lambda: date(2026, 8, 8),
+            today_provider=lambda: date(2026, 8, 18),
             now_provider=lambda: datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc),
             id_provider=lambda prefix: f"{prefix}-TOOL-1",
         )
@@ -40,7 +40,7 @@ class OrderToolsTests(unittest.TestCase):
 
         self.assertEqual(
             [order["order_id"] for order in result["orders"]],
-            ["ORD-1042", "ORD-1038"],
+            ["ORD-1042", "ORD-1038", "ORD-1121", "ORD-1110"],
         )
         self.assertNotIn("delivery_address", result["orders"][0])
 
@@ -52,7 +52,7 @@ class OrderToolsTests(unittest.TestCase):
         self.assertEqual(own_order["order"]["order_id"], "ORD-1042")
         self.assertEqual(
             own_order["order"]["items"][0]["name"],
-            "NoiseBeat H100 Headphones",
+            "Nova H100 Wireless Headset",
         )
         self.assertEqual(another_customers_order, {"found": False, "order": None})
 
@@ -66,7 +66,7 @@ class OrderToolsTests(unittest.TestCase):
         )
         self.assertEqual(
             [candidate["order_id"] for candidate in unlimited["candidates"]],
-            ["ORD-1042", "ORD-1038"],
+            ["ORD-1042", "ORD-1038", "ORD-1121", "ORD-1110", "ORD-1110"],
         )
 
     def test_returns_zero_candidates_when_window_has_no_orders(self):
@@ -85,7 +85,13 @@ class OrderToolsTests(unittest.TestCase):
 
         self.assertEqual(
             {candidate["name"] for candidate in result["candidates"]},
-            {"NoiseBeat H100 Headphones", "BrewPro Coffee Maker"},
+            {
+                "Nova H100 Wireless Headset",
+                "NovaView 27-inch 4K Monitor",
+                "NovaCam 4K Webcam",
+                "NovaType K80 Mechanical Keyboard",
+                "NovaPoint M60 Wireless Mouse",
+            },
         )
         self.assertEqual(
             set(result["candidates"][0]),
@@ -107,11 +113,11 @@ class OrderToolsTests(unittest.TestCase):
                     "ORD-DUPLICATE",
                     "CUS-001",
                     "processing",
-                    "2026-08-08T09:00:00+05:30",
+                    "2026-08-18T09:00:00-04:00",
                     "2026-08-12",
                     None,
-                    "INR",
-                    "22 Lakeview Apartments, Koramangala, Bengaluru 560034",
+                    "USD",
+                    "418 W 22nd St, New York, NY 10011",
                     "Visa ending in 1842",
                 ),
             )
@@ -124,9 +130,9 @@ class OrderToolsTests(unittest.TestCase):
                 (
                     "ITEM-DUPLICATE",
                     "ORD-DUPLICATE",
-                    "PROD-HEADPHONES",
+                    "PROD-HEADSET",
                     1,
-                    729800,
+                    12999,
                 ),
             )
 
@@ -134,7 +140,7 @@ class OrderToolsTests(unittest.TestCase):
         headphone_candidates = [
             candidate
             for candidate in result["candidates"]
-            if candidate["name"] == "NoiseBeat H100 Headphones"
+            if candidate["name"] == "Nova H100 Wireless Headset"
         ]
 
         self.assertEqual(len(headphone_candidates), 2)
@@ -160,16 +166,16 @@ class OrderToolsTests(unittest.TestCase):
                         order_id,
                         "CUS-001",
                         "processing",
-                        f"2026-08-08T{order_number + 1:02d}:00:00+05:30",
+                        f"2026-08-18T{order_number + 1:02d}:00:00-04:00",
                         "2026-08-12",
                         None,
-                        "INR",
-                        "22 Lakeview Apartments, Koramangala, Bengaluru 560034",
+                        "USD",
+                        "418 W 22nd St, New York, NY 10011",
                         "Visa ending in 1842",
                     ),
                 )
                 for item_number, product_id in enumerate(
-                    ("PROD-HEADPHONES", "PROD-COFFEE", "PROD-BACKPACK"),
+                    ("PROD-HEADSET", "PROD-MONITOR", "PROD-KEYBOARD"),
                     start=1,
                 ):
                     connection.execute(
@@ -227,12 +233,12 @@ class OrderToolsTests(unittest.TestCase):
     def test_request_invoice_creates_one_ticket_and_returns_it_on_repeat(self):
         tools = OrderTools(
             self.repository,
-            "CUS-002",
+            "CUS-001",
             now_provider=lambda: datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc),
             id_provider=lambda prefix: f"{prefix}-TOOL-1",
         )
-        first = tools.request_invoice("ORD-1095")
-        second = tools.request_invoice("ORD-1095")
+        first = tools.request_invoice("ORD-1121")
+        second = tools.request_invoice("ORD-1121")
 
         self.assertTrue(first["created"])
         self.assertFalse(second["created"])

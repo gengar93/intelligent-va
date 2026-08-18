@@ -10,29 +10,28 @@
 
 ## Conversation
 
-**User:** Is the jacket I ordered machine washable?
+**User:** Does the keyboard I ordered have replaceable switches?
 
-**Assistant:** You ordered two jackets recently. Do you mean the **NorthPeak rain jacket** in **ORD-1064** or the **CottonCloud casual jacket** in **ORD-1071**?
+**Assistant:** You ordered two **NovaType K80 mechanical keyboards** in **ORD-1064**. Is that the product you mean?
 
-**User:** The NorthPeak one.
+**User:** Yes, that one.
 
-**Assistant:** The care instructions for the NorthPeak rain jacket say: machine wash cold on a gentle cycle, close all zippers, and do not tumble dry.
+**Assistant:** Yes. The NovaType K80 uses hot-swappable switches, so you can replace them without soldering.
 
 **User:** I actually ordered two. Can I return one?
 
-**Assistant:** Yes. **ORD-1064** contains two NorthPeak rain jackets, both delivered on **3 August**, and they are within the 14-day return window. The item must be unused and have its original tags.
+**Assistant:** Yes. **ORD-1064** contains two NovaType K80 keyboards, both delivered on **August 3**, and they are within the 14-day return window. The keyboard must be undamaged and include its original accessories.
 
-Would you like to return one jacket for a refund of **₹3,199**?
+Would you like to return one keyboard for a refund of **$89.99**?
 
-**User:** Could I exchange it for a medium instead?
+**User:** Could I exchange it for the white version instead?
 
-**Assistant:** Medium is currently available. You can exchange one large jacket for one medium jacket at no additional cost. Pickup slots are available on **9 August** and **10 August**.
+**Assistant:** The white version is currently available. You can exchange one black keyboard for one white keyboard at no additional cost. Pickup slots are available on **August 9** and **August 10**.
 
 **User:** Never mind, I prefer the refund. Pick it up on the 10th.
 
-**Assistant:** Please confirm: return **1 NorthPeak rain jacket, size L**, with pickup on **10 August**, for an expected refund of **₹3,199** to your Mastercard ending in **7710**?
+**Assistant:** Please confirm: return **1 NovaType K80 mechanical keyboard**, with pickup on **August 10**, for an expected refund of **$89.99** to your Visa ending in **7710**?
 
 **User:** Yes, confirm.
 
-**Assistant:** Your return is booked. The return reference is **RET-2916**. The refund will be initiated after the returned jacket passes inspection, usually within **2 business days of pickup**. The other jacket in the order is unaffected.
-
+**Assistant:** Your return is booked. The return reference is **RET-2916**. The refund will be initiated after the returned keyboard passes inspection, usually within **2 business days of pickup**. The other keyboard in the order is unaffected.

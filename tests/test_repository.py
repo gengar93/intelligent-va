@@ -23,25 +23,33 @@ class RepositoryTests(unittest.TestCase):
 
         self.assertEqual(
             [customer["name"] for customer in customers],
-            ["Aarav Sharma", "Kabir Khan", "Meera Iyer"],
+            [
+                "Aarav Sharma",
+                "Emily Carter",
+                "Ethan Brooks",
+                "Marcus Johnson",
+                "Sofia Rodriguez",
+            ],
         )
 
     def test_returns_complete_customer_orders(self):
         result = self.repository.get_customer_orders("CUS-002")
 
-        self.assertEqual(result["customer"]["name"], "Meera Iyer")
+        self.assertEqual(result["customer"]["name"], "Emily Carter")
         self.assertEqual(
             [order["order_id"] for order in result["orders"]],
-            ["ORD-1087", "ORD-1095"],
+            ["ORD-1087", "ORD-1114", "ORD-1095", "ORD-1124"],
         )
 
         latest_order = result["orders"][0]
-        self.assertEqual(latest_order["total_minor"], 339800)
+        self.assertEqual(latest_order["total_minor"], 20998)
         self.assertEqual(latest_order["invoice_status"], "in_progress")
-        self.assertEqual(result["orders"][1]["invoice_status"], "not_requested")
+        self.assertEqual(result["orders"][1]["invoice_status"], "queued")
+        self.assertEqual(result["orders"][2]["invoice_status"], "available")
+        self.assertEqual(result["orders"][3]["invoice_status"], "not_requested")
         self.assertEqual(
             [item["product_name"] for item in latest_order["items"]],
-            ["UrbanTrail Backpack", "SteelSip Bottle"],
+            ["NovaDock 12-in-1 USB-C Dock", "NovaHub 7-port USB-C Hub"],
         )
 
     def test_returns_none_for_unknown_customer(self):
@@ -60,14 +68,14 @@ class RepositoryTests(unittest.TestCase):
 
         self.assertEqual(invoice["invoice_number"], "INV-2026-00481")
         self.assertEqual(invoice["billing_name"], "Aarav Sharma")
-        self.assertEqual(invoice["total_minor"], 749800)
+        self.assertEqual(invoice["total_minor"], 12999)
         self.assertEqual(
             invoice["document_url"],
             "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
         self.assertEqual(
             invoice["items"][0]["description"],
-            "NoiseBeat H100 Headphones",
+            "Nova H100 Wireless Headset",
         )
         self.assertIsNone(another_customers_invoice)
 
@@ -84,10 +92,13 @@ class RepositoryTests(unittest.TestCase):
     def test_lists_only_customer_scoped_open_invoice_tickets(self):
         tickets = self.repository.get_open_invoice_tickets("CUS-002")
 
-        self.assertEqual([ticket["ticket_id"] for ticket in tickets], ["TKT-7002"])
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in tickets],
+            ["TKT-7002", "TKT-7005"],
+        )
         self.assertEqual(tickets[0]["order_id"], "ORD-1087")
         self.assertEqual(tickets[0]["item_count"], 2)
-        self.assertEqual(tickets[0]["total_minor"], 339800)
+        self.assertEqual(tickets[0]["total_minor"], 20998)
         self.assertEqual(self.repository.get_open_invoice_tickets("CUS-001"), [])
         self.assertIsNone(self.repository.get_open_invoice_tickets("CUS-999"))
 
@@ -130,7 +141,7 @@ class RepositoryTests(unittest.TestCase):
             invoice_number=f"INV-2026-{suffix}",
             in_progress_history_id=f"TSH-{suffix}-PROGRESS",
             completed_history_id=f"TSH-{suffix}-COMPLETE",
-            generated_at="2026-08-13T15:30:00+05:30",
+            generated_at="2026-08-18T15:30:00-05:00",
             invoice_item_id_provider=lambda: next(item_ids),
         )
 
@@ -144,14 +155,17 @@ class RepositoryTests(unittest.TestCase):
             result["invoice"]["document_url"],
             "/api/customers/CUS-002/orders/ORD-1087/invoice.pdf",
         )
-        self.assertEqual(self.repository.get_open_invoice_tickets("CUS-002"), [])
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in self.repository.get_open_invoice_tickets("CUS-002")],
+            ["TKT-7005"],
+        )
 
         invoice = self.repository.get_order_invoice("CUS-002", "ORD-1087")
-        self.assertEqual(invoice["billing_name"], "Meera Iyer")
-        self.assertEqual(invoice["billing_address"], "8 Palm Grove, Adyar, Chennai 600020")
-        self.assertEqual(invoice["subtotal_minor"], 339800)
+        self.assertEqual(invoice["billing_name"], "Emily Carter")
+        self.assertEqual(invoice["billing_address"], "2634 N Orchard St, Chicago, IL 60614")
+        self.assertEqual(invoice["subtotal_minor"], 20998)
         self.assertEqual(invoice["tax_minor"], 0)
-        self.assertEqual(invoice["total_minor"], 339800)
+        self.assertEqual(invoice["total_minor"], 20998)
         self.assertEqual(len(invoice["items"]), 2)
 
         with sqlite3.connect(self.database_path) as connection:
@@ -168,18 +182,18 @@ class RepositoryTests(unittest.TestCase):
                 """
             ).fetchone()
 
-        self.assertEqual(ticket, ("completed", "2026-08-13T15:30:00+05:30"))
+        self.assertEqual(ticket, ("completed", "2026-08-18T15:30:00-05:00"))
         self.assertEqual(latest_history[0:2], ("in_progress", "completed"))
         self.assertIn("INV-2026-TEST", latest_history[2])
 
     def test_generating_queued_ticket_records_both_transitions(self):
         request = self.request_invoice(
             "Q",
-            customer_id="CUS-002",
-            order_id="ORD-1095",
+            customer_id="CUS-001",
+            order_id="ORD-1121",
         )
 
-        result = self.generate_invoice("CUS-002", request["ticket"]["ticket_id"], "QUEUED")
+        result = self.generate_invoice("CUS-001", request["ticket"]["ticket_id"], "QUEUED")
 
         self.assertTrue(result["created"])
         with sqlite3.connect(self.database_path) as connection:
@@ -207,8 +221,8 @@ class RepositoryTests(unittest.TestCase):
         )
 
     def test_invoice_request_is_idempotent(self):
-        first = self.request_invoice("1", order_id="ORD-1095", customer_id="CUS-002")
-        second = self.request_invoice("2", order_id="ORD-1095", customer_id="CUS-002")
+        first = self.request_invoice("1", order_id="ORD-1121", customer_id="CUS-001")
+        second = self.request_invoice("2", order_id="ORD-1121", customer_id="CUS-001")
 
         self.assertTrue(first["created"])
         self.assertFalse(second["created"])
@@ -220,7 +234,7 @@ class RepositoryTests(unittest.TestCase):
                 """
                 SELECT COUNT(*)
                 FROM tickets
-                WHERE order_id = 'ORD-1095'
+                WHERE order_id = 'ORD-1121'
                   AND ticket_type = 'invoice_generation'
                 """
             ).fetchone()[0]
@@ -241,8 +255,8 @@ class RepositoryTests(unittest.TestCase):
                 executor.submit(
                     self.request_invoice,
                     suffix,
-                    "CUS-002",
-                    "ORD-1095",
+                    "CUS-001",
+                    "ORD-1121",
                 )
                 for suffix in ("3", "4")
             ]
@@ -397,11 +411,11 @@ class RepositoryTests(unittest.TestCase):
                     "TKT-CANCELLED-COMPLETE",
                     "2026-08-01T09:02:00+00:00",
                     "Aarav Sharma",
-                    "22 Lakeview Apartments, Koramangala, Bengaluru 560034",
-                    "INR",
-                    429900,
+                    "418 W 22nd St, New York, NY 10011",
+                    "USD",
+                    32999,
                     0,
-                    429900,
+                    32999,
                     "/mock-invoices/INV-2026-CANCELLED.pdf",
                 ),
             )

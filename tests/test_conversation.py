@@ -90,17 +90,17 @@ class ConversationLoopTests(unittest.TestCase):
                 ),
                 {
                     "role": "assistant",
-                    "content": "The headphones cost ₹7,498.",
+                    "content": "The headset cost $129.99.",
                 },
             ]
         )
 
         result = loop.run_turn(
             "CUS-001",
-            "How much were the headphones I bought last week?",
+            "How much was the headset I bought last week?",
         )
 
-        self.assertEqual(result["answer"], "The headphones cost ₹7,498.")
+        self.assertEqual(result["answer"], "The headset cost $129.99.")
         self.assertEqual(
             [message["role"] for message in result["history"]],
             ["system", "user", "assistant", "tool", "assistant", "tool", "assistant"],
@@ -125,11 +125,11 @@ class ConversationLoopTests(unittest.TestCase):
                     "get_order_details",
                     {"order_id": "ORD-1042"},
                 ),
-                {"role": "assistant", "content": "They cost ₹7,498."},
+                {"role": "assistant", "content": "It cost $129.99."},
             ]
         )
 
-        events = list(loop.stream_turn("CUS-001", "How much were my headphones?"))
+        events = list(loop.stream_turn("CUS-001", "How much was my headset?"))
 
         self.assertEqual(
             [event.get("message") for event in events if event["type"] == "status"],
@@ -140,10 +140,10 @@ class ConversationLoopTests(unittest.TestCase):
             ],
         )
         self.assertEqual(events[-1]["type"], "result")
-        self.assertEqual(events[-1]["answer"], "They cost ₹7,498.")
+        self.assertEqual(events[-1]["answer"], "It cost $129.99.")
         self.assertEqual(
             [event["content"] for event in events if event["type"] == "delta"],
-            ["They cost ₹7,498."],
+            ["It cost $129.99."],
         )
 
     def test_follow_up_receives_complete_previous_history(self):
@@ -154,15 +154,15 @@ class ConversationLoopTests(unittest.TestCase):
                     "get_order_details",
                     {"order_id": "ORD-1042"},
                 ),
-                {"role": "assistant", "content": "They cost ₹7,498."},
+                {"role": "assistant", "content": "It cost $129.99."},
             ]
         )
-        first_turn = first_loop.run_turn("CUS-001", "How much were my headphones?")
+        first_turn = first_loop.run_turn("CUS-001", "How much was my headset?")
         original_history = deepcopy(first_turn["history"])
 
         follow_up_loop, client = self.make_loop(
             [
-                {"role": "assistant", "content": "They should arrive on 11 August 2026."}
+                {"role": "assistant", "content": "It should arrive on August 21, 2026."}
             ]
         )
         second_turn = follow_up_loop.run_turn(
@@ -178,7 +178,7 @@ class ConversationLoopTests(unittest.TestCase):
         self.assertIn("ORD-1042", sent_history[3]["content"])
         self.assertEqual(
             second_turn["answer"],
-            "They should arrive on 11 August 2026.",
+            "It should arrive on August 21, 2026.",
         )
 
     def test_tool_execution_remains_customer_scoped(self):
@@ -277,12 +277,12 @@ class ConversationLoopTests(unittest.TestCase):
                 tool_call_message(
                     "call-get-invoice",
                     "get_invoice",
-                    {"order_id": "ORD-1095"},
+                    {"order_id": "ORD-1121"},
                 ),
                 tool_call_message(
                     "call-request-invoice",
                     "request_invoice",
-                    {"order_id": "ORD-1095"},
+                    {"order_id": "ORD-1121"},
                 ),
                 {
                     "role": "assistant",
@@ -291,7 +291,7 @@ class ConversationLoopTests(unittest.TestCase):
             ]
         )
 
-        result = loop.run_turn("CUS-002", "Please get my invoice for ORD-1095.")
+        result = loop.run_turn("CUS-001", "Please get my invoice for ORD-1121.")
 
         request_result = json.loads(result["history"][-2]["content"])
         self.assertTrue(request_result["created"])

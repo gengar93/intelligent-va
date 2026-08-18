@@ -171,7 +171,7 @@ function OrderDetail({
             </button>
           ) : null}
           <button type="button" className="btn btn-ghost" onClick={onGoToAssistant}>
-            <ChatIcon /> Ask assistant
+            <ChatIcon /> Ask Order VA
           </button>
         </div>
       </div>

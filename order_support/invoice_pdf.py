@@ -17,9 +17,9 @@ SANS = FONT_DIR / "IBMPlexSans-VF.ttf"
 
 # Placeholder seller identity — the demo has no real merchant entity to bill from.
 SELLER = {
-    "name": "Meridian Retail Private Limited",
-    "address": "4th Floor, Prestige Tech Park,\nBengaluru 560103",
-    "gstin": "GSTIN 29ABCDE1234F1Z5",
+    "name": "Nova Components, Inc.",
+    "address": "500 Circuit Way\nAustin, TX 78701",
+    "tax_id": "EIN 12-3456789",
 }
 
 # Atelier palette
@@ -39,7 +39,7 @@ IL, IR = L + PAD, R - PAD  # inner content edges of the line-item card
 
 
 def _money(minor, currency):
-    symbol = "₹" if currency == "INR" else f"{currency} "
+    symbol = "$" if currency == "USD" else f"{currency} "
     return f"{symbol}{minor / 100:,.2f}"
 
 
@@ -48,7 +48,7 @@ def _issued(value):
         dt = datetime.fromisoformat(value)
     except (TypeError, ValueError):
         return str(value)
-    return f"{dt.day} {dt:%b %Y}"
+    return f"{dt:%b} {dt.day}, {dt:%Y}"
 
 
 def _fit(pdf, text, max_w):
@@ -79,7 +79,7 @@ def render_invoice_pdf(invoice: dict) -> bytes:
     pdf.set_font("serif", "B", 14)
     pdf.set_text_color(*INK)
     pdf.set_xy(L + 12, 21)
-    pdf.cell(90, 8, "Support Console")
+    pdf.cell(90, 8, "Order VA")
     pdf.set_font("serif", "", 32)
     pdf.set_text_color(*ACCENT_DEEP)
     pdf.set_xy(R - 90, 15)
@@ -131,7 +131,7 @@ def render_invoice_pdf(invoice: dict) -> bytes:
             pdf.cell(85, 4.8, extra)
 
     party(L, "Billed to", invoice["billing_name"], invoice["billing_address"])
-    party(L + 95, "From", SELLER["name"], SELLER["address"], SELLER["gstin"])
+    party(L + 95, "From", SELLER["name"], SELLER["address"], SELLER["tax_id"])
 
     # Line-item card
     items = invoice["items"]
@@ -212,7 +212,7 @@ def render_invoice_pdf(invoice: dict) -> bytes:
     pdf.set_font("serif", "", 11)
     pdf.set_text_color(*INK2)
     pdf.set_xy(L, 278)
-    pdf.cell(W / 2, 5, "Support Console")
+    pdf.cell(W / 2, 5, "Order VA")
     pdf.set_font("sans", "", 8.5)
     pdf.set_text_color(*INK3)
     pdf.set_xy(L, 278)

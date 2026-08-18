@@ -30,7 +30,7 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
 };
 
 export function formatMoney(amountMinor: number, currency: string): string {
-  return new Intl.NumberFormat("en-IN", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
@@ -40,7 +40,7 @@ export function formatMoney(amountMinor: number, currency: string): string {
 export function formatDate(value: string | null, includeTime = false): string {
   if (!value) return "Not available";
   const parsedValue = value.includes("T") ? value : `${value}T00:00:00`;
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",

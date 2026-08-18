@@ -42,7 +42,7 @@ const TABS: ActiveTab[] = ["orders", "tickets", "assistant"];
 const TAB_LABELS: Record<ActiveTab, string> = {
   orders: "Orders",
   tickets: "Tickets",
-  assistant: "Assistant",
+  assistant: "Order VA",
 };
 const AVATAR_CLASSES = ["av-1", "av-2", "av-3"];
 
@@ -527,7 +527,7 @@ export default function App() {
           </button>
 
           <div className="brand">
-            <div className="brand-name">Support Console</div>
+            <div className="brand-name">Order VA</div>
           </div>
 
           <nav className="tabs desktop-tabs" role="tablist" aria-label="Console sections">
@@ -652,7 +652,7 @@ export default function App() {
             aria-labelledby="mobile-navigation-title"
           >
             <div className="mobile-drawer-head">
-              <h2 id="mobile-navigation-title">Support Console</h2>
+              <h2 id="mobile-navigation-title">Order VA</h2>
               <button
                 type="button"
                 className="icon-btn"

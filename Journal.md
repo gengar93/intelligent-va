@@ -1,6 +1,6 @@
 # Project Journal
 
-Last updated: 15 August 2026
+Last updated: 18 August 2026
 
 ## Goal
 
@@ -505,6 +505,29 @@ pass. The prompt has assertions for the exact download-link contract. A live GPT
 with fictional order `ORD-1042` called `get_invoice`, returned no order card, and produced the
 expected `[Download invoice](/api/customers/CUS-001/orders/ORD-1042/invoice.pdf)` answer.
 
+### 29. US computer-parts demo dataset and Order VA branding
+
+Reworked the fictional demo for a US computer-parts producer. The application and invoice
+PDFs are branded as Order VA, monetary and date formatting use US conventions, every seeded
+order and invoice uses USD, and the hard-coded invoice seller is the fictional Nova
+Components, Inc. in Austin, Texas.
+
+Expanded the seed data from three customers and five orders to five customers and 20 orders.
+The customer list deliberately mixes one Indian-origin name with a diverse set of US names.
+Each customer has four orders containing computer products such as monitors, keyboards,
+headsets, webcams, docks, SSDs, microphones, and hubs. Added matching line-art SVG thumbnails
+for the expanded catalog and rewrote the five target sample conversations so their products,
+addresses, payment methods, dates, and dollar amounts remain consistent with the US demo.
+
+The invoice scenarios are intentionally distributed across the 20 orders: four invoices are
+available, four requests are queued or in progress, two requests have failed, and ten orders
+have no invoice request. A database test protects this exact distribution.
+
+Verification: all 109 Python tests pass. Frontend linting and the TypeScript production build
+pass. The seeded database was rebuilt successfully. A generated invoice PDF was rendered to
+an image and visually checked for Order VA branding, US seller identity, US address and date
+formatting, dollar values, alignment, and legibility.
+
 ## Current functionality
 
 - Rebuild a consistent local database from checked-in SQL.
@@ -552,7 +575,7 @@ expected `[Download invoice](/api/customers/CUS-001/orders/ORD-1042/invoice.pdf)
 - Return `404` for an unknown customer.
 
 The Python database, repository, API, tool, configuration, model-adapter, and conversation
-suite currently contains 108 passing tests. The frontend passes linting and a TypeScript
+suite currently contains 109 passing tests. The frontend passes linting and a TypeScript
 production build.
 
 ## Running the project

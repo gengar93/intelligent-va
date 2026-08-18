@@ -13,29 +13,28 @@
 
 **Assistant:** **ORD-1103** has two shipments:
 
-- The desk lamp has already been handed to the courier, so its address can no longer be changed.
-- The notebook set is still being prepared, so its address can be changed.
+- The monitor has already been handed to the courier, so its address can no longer be changed.
+- The keyboard is still being prepared, so its address can be changed.
 
-Would you like to update the address for the notebook set?
+Would you like to update the address for the keyboard?
 
 **User:** Yes, send it to my office.
 
 **Assistant:** I don’t have an office address saved for you. Please provide the street address and postal code.
 
-**User:** 14 Park View Road, Indiranagar, Bengaluru 560038.
+**User:** 1600 Blake Street, Denver, CO 80202.
 
-**Assistant:** Please confirm this change for the notebook shipment in **ORD-1103**:
+**Assistant:** Please confirm this change for the keyboard shipment in **ORD-1103**:
 
-**14 Park View Road**  
-**Indiranagar, Bengaluru 560038**
+**1600 Blake Street**<br>
+**Denver, CO 80202**
 
-The desk lamp will still go to your original address.
+The monitor will still go to your original address.
 
 **User:** That’s correct.
 
-**Assistant:** Done. The notebook shipment will go to your office address. The desk lamp remains scheduled for delivery to your original address on **10 August**.
+**Assistant:** Done. The keyboard will go to your office address. The monitor remains scheduled for delivery to your original address on **August 20**.
 
-**User:** Can you tell the courier to leave the lamp with security?
+**User:** Can you tell the courier to leave the monitor at reception?
 
 **Assistant:** This courier does not accept delivery instructions after dispatch. I can create a support request, or you can use the courier’s tracking page once the package is out for delivery.
-

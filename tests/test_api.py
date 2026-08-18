@@ -38,7 +38,7 @@ class ApiTests(unittest.TestCase):
         response = self.client.get("/api/customers")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 3)
+        self.assertEqual(len(response.json()), 5)
         self.assertEqual(response.json()[0]["customer_id"], "CUS-001")
 
     def test_lists_safe_model_and_route_options(self):
@@ -72,7 +72,7 @@ class ApiTests(unittest.TestCase):
 
         self.assertTrue(database_path.is_file())
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 3)
+        self.assertEqual(len(response.json()), 5)
 
     def test_resets_demo_database_and_clears_conversations(self):
         self.model_client.responses = [
@@ -94,7 +94,7 @@ class ApiTests(unittest.TestCase):
         open_tickets = self.client.get("/api/customers/CUS-002/tickets")
         self.assertEqual(
             [ticket["ticket_id"] for ticket in open_tickets.json()],
-            ["TKT-7002"],
+            ["TKT-7002", "TKT-7005"],
         )
         stale_conversation = self.client.post(
             "/api/chat",
@@ -114,11 +114,11 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body["customer"]["name"], "Aarav Sharma")
         self.assertEqual(
             [order["order_id"] for order in body["orders"]],
-            ["ORD-1042", "ORD-1038"],
+            ["ORD-1042", "ORD-1038", "ORD-1121", "ORD-1110"],
         )
         self.assertEqual(
             body["orders"][0]["items"][0]["product_name"],
-            "NoiseBeat H100 Headphones",
+            "Nova H100 Wireless Headset",
         )
         self.assertEqual(body["orders"][0]["invoice_status"], "available")
         self.assertEqual(body["orders"][1]["invoice_status"], "not_requested")
@@ -127,7 +127,7 @@ class ApiTests(unittest.TestCase):
         response = self.client.get("/api/customers/CUS-002/tickets")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(len(response.json()), 2)
         self.assertEqual(response.json()[0]["ticket_id"], "TKT-7002")
         self.assertEqual(response.json()[0]["item_count"], 2)
 
@@ -176,7 +176,7 @@ class ApiTests(unittest.TestCase):
             completed_ticket["document_url"],
             "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
         )
-        self.assertEqual(completed_ticket["total_minor"], 749800)
+        self.assertEqual(completed_ticket["total_minor"], 12999)
 
         failed_ticket = failed.json()[0]
         self.assertEqual(failed_ticket["ticket_id"], "TKT-7003")
@@ -187,7 +187,10 @@ class ApiTests(unittest.TestCase):
         )
         self.assertIsNone(failed_ticket["invoice_number"])
 
-        self.assertEqual(none_closed.json(), [])
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in none_closed.json()],
+            ["TKT-7004"],
+        )
         self.assertEqual(unknown.status_code, 404)
 
     def test_generated_invoice_ticket_moves_to_closed_list(self):
@@ -197,7 +200,7 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(
             [ticket["ticket_id"] for ticket in closed.json()],
-            ["TKT-7002"],
+            ["TKT-7002", "TKT-7004"],
         )
         self.assertEqual(closed.json()[0]["status"], "completed")
         self.assertIsNotNone(closed.json()[0]["invoice_number"])
@@ -217,7 +220,10 @@ class ApiTests(unittest.TestCase):
         generated_order = next(
             order for order in orders.json()["orders"] if order["order_id"] == "ORD-1087"
         )
-        self.assertEqual(tickets.json(), [])
+        self.assertEqual(
+            [ticket["ticket_id"] for ticket in tickets.json()],
+            ["TKT-7005"],
+        )
         self.assertEqual(generated_order["invoice_status"], "available")
 
     def test_rejects_foreign_and_closed_invoice_tickets(self):
@@ -373,7 +379,7 @@ class ApiTests(unittest.TestCase):
         tool_result = next(event for event in events if event["type"] == "tool_result")
         self.assertEqual(tool_result["id"], "call-orders")
         self.assertEqual(tool_result["name"], "list_orders")
-        self.assertEqual(len(tool_result["result"]["orders"]), 2)
+        self.assertEqual(len(tool_result["result"]["orders"]), 4)
         self.assertGreaterEqual(tool_result["elapsed_ms"], 0)
 
         streamed_text = "".join(

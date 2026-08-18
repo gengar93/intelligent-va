@@ -11,11 +11,11 @@
 
 **User:** It says my package was delivered, but I don’t have it.
 
-**Assistant:** I’m sorry about that. Is this about **ORD-1095**, the HomeChef mixer marked delivered today at **3:42 PM**?
+**Assistant:** I’m sorry about that. Is this about **ORD-1095**, the NovaView 27-inch monitor marked delivered today at **3:42 PM**?
 
 **User:** Yes.
 
-**Assistant:** The courier record says it was delivered to “reception/security.” Have you checked with your building’s security desk or anyone else at the address?
+**Assistant:** The courier record says it was delivered to “front desk.” Have you checked with the front desk or anyone else at the address?
 
 **User:** Yes, security doesn’t have it.
 
@@ -31,12 +31,11 @@
 
 - Order **ORD-1095**
 - Marked delivered but not received
-- Security desk checked
+- Front desk checked
 - Replacement preferred
 
-You should receive an update by **10 August, 4 PM**.
+You should receive an update by **August 10 at 4 PM**.
 
 **User:** Do I need to explain everything again if I contact support?
 
 **Assistant:** No. The ticket contains this conversation summary. Give the support agent reference **TKT-8044**.
-

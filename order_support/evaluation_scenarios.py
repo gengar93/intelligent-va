@@ -5,11 +5,11 @@ from order_support.evaluation import EvaluationScenario, TurnExpectation
 
 READ_ONLY_SCENARIOS = (
     EvaluationScenario(
-        name="track headphones by product reference",
+        name="track headset by product reference",
         customer_id="CUS-001",
         turns=(
             TurnExpectation(
-                prompt="Where are my headphones?",
+                prompt="Where is my headset?",
                 required_tools=(
                     "get_recent_product_candidates",
                     "get_order_details",
@@ -17,17 +17,17 @@ READ_ONLY_SCENARIOS = (
                 required_fact_groups=(
                     ("ORD-1042",),
                     ("shipped",),
-                    ("11 August", "August 11"),
+                    ("21 August", "August 21"),
                 ),
             ),
         ),
     ),
     EvaluationScenario(
-        name="check a cancelled product order",
+        name="check a cancelled monitor order",
         customer_id="CUS-001",
         turns=(
             TurnExpectation(
-                prompt="Was my coffee maker order cancelled?",
+                prompt="Was my monitor order cancelled?",
                 required_tools=(
                     "get_recent_product_candidates",
                     "get_order_details",
@@ -52,16 +52,16 @@ READ_ONLY_SCENARIOS = (
         customer_id="CUS-001",
         turns=(
             TurnExpectation(
-                prompt="How much were my headphones?",
+                prompt="How much was my headset?",
                 required_tools=(
                     "get_recent_product_candidates",
                     "get_order_details",
                 ),
-                required_fact_groups=(("₹7,498", "INR 7,498", "7,498"),),
+                required_fact_groups=(("$129.99", "USD 129.99", "129.99"),),
             ),
             TurnExpectation(
                 prompt="And when should they arrive?",
-                required_fact_groups=(("11 August", "August 11"),),
+                required_fact_groups=(("21 August", "August 21"),),
             ),
         ),
     ),
@@ -70,7 +70,7 @@ READ_ONLY_SCENARIOS = (
         customer_id="CUS-001",
         turns=(
             TurnExpectation(
-                prompt="Move my headphones delivery to Friday.",
+                prompt="Move my headset delivery to Monday.",
                 required_tools=(
                     "get_recent_product_candidates",
                     "get_order_details",
@@ -113,7 +113,7 @@ READ_ONLY_SCENARIOS = (
         customer_id="CUS-001",
         turns=(
             TurnExpectation(
-                prompt="What payment method did I use for my headphones?",
+                prompt="What payment method did I use for my headset?",
                 required_tools=(
                     "get_recent_product_candidates",
                     "get_order_details",

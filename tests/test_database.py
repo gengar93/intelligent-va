@@ -31,10 +31,10 @@ class DatabaseTests(unittest.TestCase):
             invoice_count = connection.execute("SELECT COUNT(*) FROM invoices").fetchone()[0]
             violations = connection.execute("PRAGMA foreign_key_check").fetchall()
 
-        self.assertEqual(customer_count, 3)
-        self.assertEqual(order_count, 5)
-        self.assertEqual(ticket_count, 3)
-        self.assertEqual(invoice_count, 1)
+        self.assertEqual(customer_count, 5)
+        self.assertEqual(order_count, 20)
+        self.assertEqual(ticket_count, 10)
+        self.assertEqual(invoice_count, 4)
         self.assertEqual(violations, [])
 
     def test_seed_data_covers_invoice_ticket_lifecycle_cases(self):
@@ -54,11 +54,47 @@ class DatabaseTests(unittest.TestCase):
                 ("completed", "INV-2026-00481"),
                 ("in_progress", None),
                 ("failed", None),
+                ("completed", "INV-2026-00482"),
+                ("queued", None),
+                ("in_progress", None),
+                ("failed", None),
+                ("completed", "INV-2026-00483"),
+                ("queued", None),
+                ("completed", "INV-2026-00484"),
             ],
         )
         self.assertEqual(
             rows[0]["document_url"],
             "/api/customers/CUS-001/orders/ORD-1042/invoice.pdf",
+        )
+
+    def test_seed_data_has_the_planned_invoice_demo_distribution(self):
+        with self.connect() as connection:
+            counts = connection.execute(
+                """
+                SELECT
+                    CASE
+                        WHEN i.invoice_id IS NOT NULL THEN 'available'
+                        WHEN t.status IN ('queued', 'in_progress') THEN 'requested'
+                        WHEN t.status = 'failed' THEN 'failed'
+                        ELSE 'not_requested'
+                    END AS invoice_state,
+                    COUNT(*) AS order_count
+                FROM orders AS o
+                LEFT JOIN tickets AS t ON t.order_id = o.order_id
+                LEFT JOIN invoices AS i ON i.order_id = o.order_id
+                GROUP BY invoice_state
+                """
+            ).fetchall()
+
+        self.assertEqual(
+            {row["invoice_state"]: row["order_count"] for row in counts},
+            {
+                "available": 4,
+                "requested": 4,
+                "failed": 2,
+                "not_requested": 10,
+            },
         )
 
     def test_prevents_two_active_invoice_tickets_for_one_order(self):
@@ -96,9 +132,9 @@ class DatabaseTests(unittest.TestCase):
                     "ORD-1064",
                     "TKT-7003",
                     "2026-08-11T12:22:00+05:30",
-                    "Kabir Khan",
-                    "51 Crescent Residency, Bandra West, Mumbai 400050",
-                    "INR",
+                    "Marcus Johnson",
+                    "782 Valencia St, San Francisco, CA 94110",
+                    "USD",
                     10000,
                     1800,
                     10000,
@@ -122,12 +158,12 @@ class DatabaseTests(unittest.TestCase):
                     "ORD-1087",
                     "TKT-7002",
                     "2026-08-11T11:16:00+05:30",
-                    "Meera Iyer",
-                    "8 Palm Grove, Adyar, Chennai 600020",
-                    "INR",
-                    339800,
+                    "Emily Carter",
+                    "2634 N Orchard St, Chicago, IL 60614",
+                    "USD",
+                    20998,
                     0,
-                    339800,
+                    20998,
                     "/mock-invoices/INV-2026-PREMATURE.pdf",
                 ),
             )
@@ -154,15 +190,15 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["status"], "shipped")
-        self.assertEqual(rows[0]["estimated_delivery_date"], "2026-08-11")
+        self.assertEqual(rows[0]["estimated_delivery_date"], "2026-08-21")
         self.assertEqual(
             rows[0]["delivery_address"],
-            "22 Lakeview Apartments, Koramangala, Bengaluru 560034",
+            "418 W 22nd St, New York, NY 10011",
         )
         self.assertEqual(rows[0]["payment_method_display"], "Visa ending in 1842")
-        self.assertEqual(rows[0]["product_name"], "NoiseBeat H100 Headphones")
+        self.assertEqual(rows[0]["product_name"], "Nova H100 Wireless Headset")
         self.assertEqual(rows[0]["quantity"], 1)
-        self.assertEqual(rows[0]["unit_price_minor"], 749800)
+        self.assertEqual(rows[0]["unit_price_minor"], 12999)
 
     def test_customer_scope_does_not_return_another_customers_order(self):
         with self.connect() as connection:
@@ -188,7 +224,7 @@ class DatabaseTests(unittest.TestCase):
                 ("ORD-1087",),
             ).fetchone()[0]
 
-        self.assertEqual(total_minor, 339800)
+        self.assertEqual(total_minor, 20998)
 
     def test_rejects_zero_quantity(self):
         with self.connect() as connection, self.assertRaises(sqlite3.IntegrityError):
@@ -198,7 +234,7 @@ class DatabaseTests(unittest.TestCase):
                     order_item_id, order_id, product_id, quantity, unit_price_minor
                 ) VALUES (?, ?, ?, ?, ?)
                 """,
-                ("INVALID-QUANTITY", "ORD-1042", "PROD-HEADPHONES", 0, 749800),
+                ("INVALID-QUANTITY", "ORD-1042", "PROD-HEADSET", 0, 12999),
             )
 
     def test_rejects_negative_price(self):
@@ -209,7 +245,7 @@ class DatabaseTests(unittest.TestCase):
                     order_item_id, order_id, product_id, quantity, unit_price_minor
                 ) VALUES (?, ?, ?, ?, ?)
                 """,
-                ("INVALID-PRICE", "ORD-1042", "PROD-HEADPHONES", 1, -1),
+                ("INVALID-PRICE", "ORD-1042", "PROD-HEADSET", 1, -1),
             )
 
 
